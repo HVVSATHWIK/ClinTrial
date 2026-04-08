@@ -551,15 +551,54 @@ def build_demo() -> gr.Blocks:
         with gr.Row(equal_height=False):
             with gr.Column(scale=1):
                 gr.Markdown("### Controls")
-                task_level = gr.Dropdown(choices=["easy", "medium", "hard"], value="medium", label="Task")
-                agent_type = gr.Dropdown(choices=["baseline", "openai"], value="baseline", label="Agent")
-                llm_provider = gr.Dropdown(
-                    choices=["gemini-openai", "openai"], value="gemini-openai", label="LLM Provider"
+                gr.Markdown(
+                    "Select configuration and click **Run Episode**. "
+                    "You do not type protocol text or patient data manually; the environment loads case data automatically."
                 )
-                model_name = gr.Textbox(value="gemini-2.5-flash-lite", label="Model")
-                seed = gr.Number(value=7, precision=0, label="Seed")
-                case_id = gr.Textbox(value="", label="Optional Case ID")
+                task_level = gr.Dropdown(
+                    choices=["easy", "medium", "hard"],
+                    value="medium",
+                    label="Task Level",
+                    info="Easy has simpler cases; hard has multi-violation reasoning.",
+                )
+                agent_type = gr.Dropdown(
+                    choices=["baseline", "openai"],
+                    value="baseline",
+                    label="Agent Mode",
+                    info="Use openai for LLM behavior. Baseline is deterministic and simpler.",
+                )
+                llm_provider = gr.Dropdown(
+                    choices=["gemini-openai", "openai"],
+                    value="gemini-openai",
+                    label="LLM Provider",
+                    info="Used only when Agent Mode is openai.",
+                )
+                model_name = gr.Textbox(
+                    value="gemini-2.5-flash-lite",
+                    label="Model ID",
+                    info="Keep default unless you intentionally switch models.",
+                )
+                seed = gr.Number(
+                    value=7,
+                    precision=0,
+                    label="Seed",
+                    info="Same seed helps reproducibility.",
+                )
+                case_id = gr.Textbox(
+                    value="",
+                    label="Optional Case ID",
+                    placeholder="Examples: EASY-001, MED-002, HARD-003 (leave blank for random case)",
+                )
                 run_btn = gr.Button("Run Episode", variant="primary")
+
+                gr.Markdown(
+                    "**Quick Input Guide**\n"
+                    "1. Choose Task Level\n"
+                    "2. Choose Agent Mode\n"
+                    "3. If openai mode: keep gemini-openai + model id\n"
+                    "4. Optional: set a Case ID for a specific case\n"
+                    "5. Click Run Episode"
+                )
 
             with gr.Column(scale=2):
                 result_summary = gr.HTML()

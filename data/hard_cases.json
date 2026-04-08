@@ -1,0 +1,4 @@
+{
+  "description": "Dummy dataset for hard cases to ensure Docker build and path resolution succeeds.",
+  "cases": []
+}

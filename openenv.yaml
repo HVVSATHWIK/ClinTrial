@@ -1,0 +1,33 @@
+env_name: "ClinTrialEnv"
+version: "1.0.0"
+description: "Benchmark for Clinical Trial Protocol Deviation Detection"
+requirements:
+  - "python>=3.10"
+  - "pydantic>=2.0"
+
+tasks:
+  - name: "structured_detection"
+    level: "easy"
+    max_steps: 10
+    dataset_path: "./data/easy_cases.json"
+  - name: "severity_classification"
+    level: "medium"
+    max_steps: 25
+    dataset_path: "./data/medium_cases.json"
+  - name: "multi_protocol_contradiction"
+    level: "hard"
+    max_steps: 50
+    dataset_path: "./data/hard_cases.json"
+
+spaces:
+  observation:
+    type: "Dict"
+    description: "JSON containing protocol, patient records, and episode metrics."
+  action:
+    type: "JSON"
+    schema: "./schemas/action_schema.json"
+
+compute_requirements:
+  vcpu: 2
+  ram_gb: 8
+  max_runtime_mins: 20

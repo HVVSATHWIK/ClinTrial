@@ -286,12 +286,14 @@ UI_CSS = """
 }
 
 .top-guide-row {
-    margin: 6px 0 16px;
-    align-items: stretch !important;
+    margin: 6px 0 12px;
+    align-items: flex-start !important;
 }
 
 .top-guide-panel {
-    height: 100%;
+    height: auto;
+    max-height: 560px;
+    overflow-y: auto;
     border: 1px solid #b8d5e5;
     border-radius: 16px;
     padding: 14px;
@@ -317,6 +319,12 @@ UI_CSS = """
 .top-guide-dropdown .label-wrap span {
     color: #0f3f5a !important;
     font-weight: 700;
+}
+
+.top-guide-dropdown .accordion-content,
+.top-guide-dropdown .gradio-accordion-content {
+    max-height: 430px;
+    overflow-y: auto;
 }
 
 @media (max-width: 980px) {
@@ -968,7 +976,7 @@ def build_demo() -> gr.Blocks:
             "submits protocol deviations, and is evaluated on both correctness and decision efficiency."
         )
 
-        with gr.Row(equal_height=True, elem_classes=["top-guide-row"]):
+        with gr.Row(equal_height=False, elem_classes=["top-guide-row"]):
             with gr.Column(scale=3):
                 gr.HTML(_usage_hero_html())
 

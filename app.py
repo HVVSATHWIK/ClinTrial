@@ -274,6 +274,16 @@ UI_CSS = """
     line-height: 1.45;
 }
 
+.guide-actions {
+    margin-top: 6px;
+}
+
+.guide-inline-note {
+    margin-top: 6px;
+    color: #36556d !important;
+    font-size: 12px;
+}
+
 @media (max-width: 980px) {
     .usage-grid {
         grid-template-columns: 1fr;
@@ -989,10 +999,11 @@ def build_demo() -> gr.Blocks:
                     elem_classes=["clinical-note"],
                 )
 
-                with gr.Row():
-                    run_btn = gr.Button("Run Episode", variant="primary")
-                    show_guide_btn = gr.Button("Show Task Guide")
-                    hide_guide_btn = gr.Button("Hide Task Guide", visible=False)
+                run_btn = gr.Button("Run Episode", variant="primary", size="lg")
+
+                with gr.Row(elem_classes=["guide-actions"]):
+                    show_guide_btn = gr.Button("Open Task Guide")
+                    hide_guide_btn = gr.Button("Close Task Guide", visible=False)
 
                 task_guide = gr.Markdown(
                     value=_task_guide_text("medium"),
@@ -1000,7 +1011,10 @@ def build_demo() -> gr.Blocks:
                     elem_classes=["guide-panel"],
                 )
 
-                gr.Markdown("Guide moved to top for faster onboarding and clinical workflow context.")
+                gr.Markdown(
+                    "Guide buttons only show or hide instructions. They do not run an episode.",
+                    elem_classes=["guide-inline-note"],
+                )
 
             with gr.Column(scale=2, elem_classes=["result-panel"]):
                 result_summary = gr.HTML(
@@ -1043,23 +1057,27 @@ def build_demo() -> gr.Blocks:
             fn=_task_guide_text,
             inputs=[task_level],
             outputs=[task_guide],
+            queue=False,
         )
 
         show_guide_btn.click(
             fn=_show_task_guide,
             inputs=[task_level],
             outputs=[task_guide, show_guide_btn, hide_guide_btn],
+            queue=False,
         )
 
         hide_guide_btn.click(
             fn=_hide_task_guide,
             outputs=[task_guide, show_guide_btn, hide_guide_btn],
+            queue=False,
         )
 
         agent_type.change(
             fn=_agent_mode_ui,
             inputs=[agent_type],
             outputs=[llm_provider, model_name, mode_hint],
+            queue=False,
         )
 
     return demo

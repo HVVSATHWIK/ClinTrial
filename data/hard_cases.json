@@ -4,8 +4,8 @@
   "cases": [
     {
       "case_id": "HARD-001",
-      "objective": "Detect treatment sequence violation after withdrawal criteria are met.",
-      "protocol_excerpt": "Section 6.5: If neutrophil count drops below 1.0 x10^9/L, dosing must stop until recovery above 1.5 x10^9/L.",
+      "objective": "Detect dose continuation after withdrawal threshold, delayed safety follow-up, and missing expedited safety communication.",
+      "protocol_excerpt": "Section 6.5: If neutrophil count drops below 1.0 x10^9/L, dosing must stop until recovery above 1.5 x10^9/L. Section 6.8: CBC must be repeated at least weekly while neutrophils remain below 1.5 x10^9/L. Section 11.2: Grade 4 neutropenia requires sponsor safety notification within 24 hours.",
       "patient_records": [
         {
           "patient_id": "P077",
@@ -26,6 +26,8 @@
               "dose_given": true
             }
           ],
+          "follow_up_cbc_date": "2026-02-05",
+          "safety_alert_sent": false,
           "notes": "No interruption order in chart."
         }
       ],
@@ -35,13 +37,25 @@
           "clause_violated": "Section 6.5",
           "severity": "critical",
           "regulation_ref": "ICH E6(R2) 4.3.1"
+        },
+        {
+          "patient_id": "P077",
+          "clause_violated": "Section 6.8",
+          "severity": "major",
+          "regulation_ref": "ICH E6(R2) 4.3.1"
+        },
+        {
+          "patient_id": "P077",
+          "clause_violated": "Section 11.2",
+          "severity": "major",
+          "regulation_ref": "ICH E2A 1.5"
         }
       ]
     },
     {
       "case_id": "HARD-002",
-      "objective": "Detect randomization and treatment allocation contradiction.",
-      "protocol_excerpt": "Section 2.4: Cohort B participants must receive blinded placebo during Cycle 1.",
+      "objective": "Detect randomization contradiction, blinding/accountability mismatch, and drug-count reconciliation failure.",
+      "protocol_excerpt": "Section 2.4: Cohort B participants must receive blinded placebo during Cycle 1. Section 5.5.3: Pharmacy source records, eCRF treatment assignment, and investigational product accountability must be internally consistent. Section 7.1: Cycle 1 return drug accountability must reconcile within plus or minus 1 tablet.",
       "patient_records": [
         {
           "patient_id": "P083",
@@ -52,7 +66,11 @@
               "medication": "Investigational Active 50 mg"
             }
           ],
-          "ecrf_entry": "Placebo assigned"
+          "ecrf_entry": "Placebo assigned",
+          "ip_accountability": {
+            "expected_tablets_returned": 30,
+            "actual_tablets_returned": 18
+          }
         }
       ],
       "expected_deviations": [
@@ -61,13 +79,25 @@
           "clause_violated": "Section 2.4",
           "severity": "major",
           "regulation_ref": "ICH E6(R2) 5.5.3"
+        },
+        {
+          "patient_id": "P083",
+          "clause_violated": "Section 5.5.3",
+          "severity": "critical",
+          "regulation_ref": "ICH E6(R2) 5.5.3"
+        },
+        {
+          "patient_id": "P083",
+          "clause_violated": "Section 7.1",
+          "severity": "major",
+          "regulation_ref": "ICH E6(R2) 4.9.0"
         }
       ]
     },
     {
       "case_id": "HARD-003",
-      "objective": "Detect eligibility breach from cumulative history and baseline labs.",
-      "protocol_excerpt": "Section 1.8: Patients with prior biologic exposure in the last 12 months or baseline QTc over 470 ms are ineligible.",
+      "objective": "Detect eligibility breach, missing medical monitor waiver, and missing confirmatory ECG before randomization.",
+      "protocol_excerpt": "Section 1.8: Patients with prior biologic exposure in the last 12 months or baseline QTc over 470 ms are ineligible. Section 1.9: Any enrollment exception requires documented medical monitor waiver before randomization. Section 10.2: Baseline QTc over 470 ms requires repeat ECG confirmation before randomization.",
       "patient_records": [
         {
           "patient_id": "P099",
@@ -79,6 +109,8 @@
           ],
           "screening_date": "2026-05-01",
           "baseline_qtc_ms": 482,
+          "repeat_ecg_before_randomization": false,
+          "medical_monitor_waiver_documented": false,
           "enrollment_status": "enrolled"
         }
       ],
@@ -88,6 +120,18 @@
           "clause_violated": "Section 1.8",
           "severity": "critical",
           "regulation_ref": "ICH E6(R2) 3.1.2"
+        },
+        {
+          "patient_id": "P099",
+          "clause_violated": "Section 1.9",
+          "severity": "major",
+          "regulation_ref": "ICH E6(R2) 4.5.2"
+        },
+        {
+          "patient_id": "P099",
+          "clause_violated": "Section 10.2",
+          "severity": "major",
+          "regulation_ref": "ICH E6(R2) 4.3.1"
         }
       ]
     }

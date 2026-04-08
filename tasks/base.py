@@ -68,8 +68,8 @@ class BaseTask:
             seen_submissions.add(signature)
             expected_item, match_score = self._find_best_expected(report, expected, claimed_ground_truth)
 
-            if expected_item is None or match_score < 0.35:
-                breakdown.false_positive_penalty += self.reward_weights["false_positive_penalty"] * 0.7
+            if expected_item is None or match_score < 0.45:
+                breakdown.false_positive_penalty += self.reward_weights["false_positive_penalty"] * 0.85
                 continue
 
             matched_signature = expected_item.signature()
@@ -79,25 +79,25 @@ class BaseTask:
 
             claimed_ground_truth.add(matched_signature)
 
-            if match_score >= 0.75:
+            if match_score >= 0.88:
                 tp_factor = 1.0
-            elif match_score >= 0.55:
-                tp_factor = 0.7
+            elif match_score >= 0.7:
+                tp_factor = 0.65
             else:
-                tp_factor = 0.45
+                tp_factor = 0.4
             breakdown.true_positive += self.reward_weights["true_positive"] * tp_factor
 
             if report.severity == expected_item.severity:
                 breakdown.severity_match += self.reward_weights["severity_match"]
             else:
-                mismatch_factor = 0.5 if match_score >= 0.55 else 0.25
+                mismatch_factor = 0.75 if match_score >= 0.7 else 0.5
                 breakdown.severity_mismatch_penalty += self.reward_weights["severity_mismatch_penalty"] * mismatch_factor
 
             regulation_similarity = self._regulation_similarity(report.regulation_ref, expected_item.regulation_ref)
             if regulation_similarity >= 0.95:
                 breakdown.regulation_match += self.reward_weights["regulation_match"]
-            elif regulation_similarity >= 0.5:
-                breakdown.regulation_match += self.reward_weights["regulation_match"] * 0.5
+            elif regulation_similarity >= 0.7:
+                breakdown.regulation_match += self.reward_weights["regulation_match"] * 0.35
 
         score = self._clamp_step_reward(breakdown)
         return score, breakdown
@@ -153,7 +153,7 @@ class BaseTask:
 
         submitted_section = self._extract_section_id(submitted_norm)
         expected_section = self._extract_section_id(expected_norm)
-        section_score = 0.92 if submitted_section and submitted_section == expected_section else 0.0
+        section_score = 0.85 if submitted_section and submitted_section == expected_section else 0.0
 
         submitted_tokens = set(submitted_norm.split())
         expected_tokens = set(expected_norm.split())

@@ -399,6 +399,26 @@ def _summarize_action(action: Dict[str, Any]) -> Dict[str, Any]:
     return summary
 
 
+def _report_signature(report: Dict[str, Any]) -> str:
+    patient_id = str(report.get("patient_id", "")).strip().lower()
+    clause = str(report.get("clause_violated", "")).strip().lower()
+    severity = str(report.get("severity", "")).strip().lower()
+    regulation = str(report.get("regulation_ref", "")).strip().lower()
+    return f"{patient_id}|{clause}|{severity}|{regulation}"
+
+
+def _submission_signature(action: Dict[str, Any]) -> str:
+    reports = action.get("reports")
+    if not isinstance(reports, list):
+        return ""
+    signatures = sorted(
+        _report_signature(report)
+        for report in reports
+        if isinstance(report, dict)
+    )
+    return "||".join(signatures)
+
+
 def run_episode(
     task_level: str,
     agent_type: str,
@@ -409,6 +429,8 @@ def run_episode(
     case_id: Optional[str] = None,
     temperature: float = 0.0,
     debug_actions: bool = False,
+    auto_finish_score: float = 0.98,
+    max_identical_submissions: int = 1,
     emit_stdout: bool = True,
 ) -> Dict[str, Any]:
     env = ClinTrialOpenEnv(task_level=task_level)
@@ -441,17 +463,37 @@ def run_episode(
     total_reward = 0.0
     done = False
     final_task_score = 0.0
+    force_finish_next_step = False
+    last_submission_signature = ""
+    identical_submission_count = 0
 
     while not done:
         emit(f"[STEP] {observation['current_step'] + 1}/{observation['max_steps']}")
 
-        try:
-            action = agent.act(observation)
-        except Exception as exc:  # noqa: BLE001
-            emit(f"[INFO] {_compact_json({'agent_runtime_error': str(exc)})}")
-            if hasattr(agent, "fallback_action"):
-                action = agent.fallback_action(observation)
+        if force_finish_next_step:
+            action = {"action_type": "finish"}
+            force_finish_next_step = False
+            emit("[INFO] {\"auto_finish\":\"score_threshold_reached\"}")
+        else:
+            try:
+                action = agent.act(observation)
+            except Exception as exc:  # noqa: BLE001
+                emit(f"[INFO] {_compact_json({'agent_runtime_error': str(exc)})}")
+                if hasattr(agent, "fallback_action"):
+                    action = agent.fallback_action(observation)
+                else:
+                    action = {"action_type": "finish"}
+
+        if action.get("action_type") == "submit_reports":
+            current_signature = _submission_signature(action)
+            if current_signature and current_signature == last_submission_signature:
+                identical_submission_count += 1
             else:
+                identical_submission_count = 0
+                last_submission_signature = current_signature
+
+            if identical_submission_count >= max_identical_submissions:
+                emit("[INFO] {\"auto_finish\":\"identical_submission_loop_detected\"}")
                 action = {"action_type": "finish"}
 
         emit(f"[ACTION] {_compact_json(_summarize_action(action))}")
@@ -464,6 +506,9 @@ def run_episode(
 
         emit(f"[REWARD] {reward:.4f}")
         emit(f"[TASK_SCORE] {final_task_score:.4f}")
+
+        if not done and final_task_score >= auto_finish_score:
+            force_finish_next_step = True
 
         errors = info.get("errors") or []
         if errors:
@@ -489,6 +534,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--gemini-base-url", default=None)
     parser.add_argument("--debug-actions", action="store_true")
+    parser.add_argument("--auto-finish-score", type=float, default=0.98)
+    parser.add_argument("--max-identical-submissions", type=int, default=1)
     return parser
 
 
@@ -508,6 +555,8 @@ def main() -> None:
         case_id=args.case_id,
         temperature=args.temperature,
         debug_actions=args.debug_actions,
+        auto_finish_score=args.auto_finish_score,
+        max_identical_submissions=args.max_identical_submissions,
         emit_stdout=True,
     )
 

@@ -156,6 +156,7 @@ python inference.py --task medium --agent openai --llm-provider openai --model g
 Notes:
 - All LLM calls are made through the OpenAI Python client.
 - Gemini mode uses OpenAI-compatible base URL configuration (default: `https://generativelanguage.googleapis.com/v1beta/openai/`).
+- Inference includes anti-loop controls: identical repeated report submissions are auto-terminated, and near-perfect task score can auto-trigger `finish` to avoid reward collapse from spam actions.
 
 Expected log pattern:
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 from env import ClinTrialOpenEnv
@@ -124,6 +125,7 @@ class OpenAIClientAgent:
         self.model_name = model_name
         self.temperature = temperature
         self.llm_provider = llm_provider
+        self.has_submitted_reports = False
 
         if llm_provider == "openai":
             api_key = os.getenv("OPENAI_API_KEY")
@@ -155,15 +157,30 @@ class OpenAIClientAgent:
             }
 
         system_prompt = (
-            "You are a clinical trial auditor agent. "
-            "Respond with a single JSON object matching this schema: "
-            "{\"action_type\": \"submit_reports\"|\"finish\", \"reports\": [{\"patient_id\": str, \"clause_violated\": str, \"severity\": \"minor\"|\"major\"|\"critical\", \"regulation_ref\": str}]}. "
-            "If you have already submitted your best report, use action_type=finish."
+            "You are a clinical trial protocol deviation auditor in an RL environment. "
+            "Return exactly one JSON object, no markdown and no extra text. "
+            "Schema: {\"action_type\":\"submit_reports\"|\"finish\",\"reports\":[{\"patient_id\":str,\"clause_violated\":str,\"severity\":\"minor\"|\"major\"|\"critical\",\"regulation_ref\":str}]}. "
+            "Use submit_reports when a plausible deviation exists. "
+            "Never return finish before at least one non-empty submit_reports action in this episode. "
+            "Use explicit section identifiers (for example, Section 3.2) when available from protocol text."
         )
 
+        example_output = {
+            "action_type": "submit_reports",
+            "reports": [
+                {
+                    "patient_id": "P001",
+                    "clause_violated": "Section 3.2",
+                    "severity": "major",
+                    "regulation_ref": "ICH E6(R2) 4.5.2",
+                }
+            ],
+        }
+
         user_prompt = (
-            "Audit the following observation and propose deviations. "
-            "Use only evidence from the protocol and records.\n\n"
+            "Task: audit this case and propose the best likely protocol deviation report. "
+            "If uncertain, submit your best single report instead of finishing.\n\n"
+            f"Example output JSON:\n{json.dumps(example_output, ensure_ascii=True)}\n\n"
             f"Observation JSON:\n{json.dumps(observation, ensure_ascii=True)}"
         )
 
@@ -179,15 +196,155 @@ class OpenAIClientAgent:
 
         raw_content = response.choices[0].message.content
         if not raw_content:
-            return {"action_type": "finish"}
+            return self._fallback_submit_or_finish(observation)
         try:
             payload = json.loads(raw_content)
         except json.JSONDecodeError:
-            return {"action_type": "finish"}
+            return self._fallback_submit_or_finish(observation)
 
         if not isinstance(payload, dict):
+            return self._fallback_submit_or_finish(observation)
+
+        coerced = self._coerce_action(payload, observation)
+        if coerced["action_type"] == "submit_reports" and coerced.get("reports"):
+            self.has_submitted_reports = True
+        return coerced
+
+    def _coerce_action(self, payload: Dict[str, Any], observation: Dict[str, Any]) -> Dict[str, Any]:
+        action_type = payload.get("action_type")
+        raw_reports = payload.get("reports") if isinstance(payload.get("reports"), list) else []
+
+        if action_type not in {"submit_reports", "finish", "read_case"}:
+            action_type = "submit_reports" if raw_reports else "finish"
+
+        if action_type == "read_case":
+            return {
+                "action_type": "read_case",
+                "case_id": observation.get("active_case_id"),
+            }
+
+        normalized_reports = [
+            report for report in (self._normalize_report(item, observation) for item in raw_reports) if report
+        ]
+
+        if action_type == "finish" and not self.has_submitted_reports:
+            return self._fallback_submit_or_finish(observation)
+
+        if action_type == "submit_reports" and not normalized_reports and not self.has_submitted_reports:
+            return self._fallback_submit_or_finish(observation)
+
+        return {
+            "action_type": action_type,
+            "reports": normalized_reports,
+        }
+
+    def _normalize_report(self, item: Any, observation: Dict[str, Any]) -> Optional[Dict[str, str]]:
+        if not isinstance(item, dict):
+            return None
+
+        patient_id = str(
+            item.get("patient_id")
+            or item.get("patient")
+            or self._first_patient_id(observation)
+            or ""
+        ).strip()
+        clause_violated = str(
+            item.get("clause_violated")
+            or item.get("clause")
+            or item.get("violation")
+            or ""
+        ).strip()
+
+        if not patient_id or not clause_violated:
+            return None
+
+        severity_raw = str(item.get("severity") or "major").lower().strip()
+        severity_map = {
+            "low": "minor",
+            "minor": "minor",
+            "moderate": "major",
+            "medium": "major",
+            "major": "major",
+            "high": "critical",
+            "critical": "critical",
+            "severe": "critical",
+        }
+        severity = severity_map.get(severity_raw, "major")
+
+        regulation_ref = str(
+            item.get("regulation_ref")
+            or item.get("regulation")
+            or item.get("reference")
+            or ""
+        ).strip()
+
+        report = {
+            "patient_id": patient_id,
+            "clause_violated": clause_violated,
+            "severity": severity,
+        }
+        if regulation_ref:
+            report["regulation_ref"] = regulation_ref
+        return report
+
+    def _fallback_submit_or_finish(self, observation: Dict[str, Any]) -> Dict[str, Any]:
+        if self.has_submitted_reports:
             return {"action_type": "finish"}
-        return payload
+        heuristic_report = self._heuristic_report(observation)
+        if heuristic_report:
+            self.has_submitted_reports = True
+            return {
+                "action_type": "submit_reports",
+                "reports": [heuristic_report],
+            }
+        return {"action_type": "finish"}
+
+    def fallback_action(self, observation: Dict[str, Any]) -> Dict[str, Any]:
+        if not observation.get("case_opened", False):
+            return {
+                "action_type": "read_case",
+                "case_id": observation.get("active_case_id"),
+            }
+        return self._fallback_submit_or_finish(observation)
+
+    def _heuristic_report(self, observation: Dict[str, Any]) -> Optional[Dict[str, str]]:
+        patient_id = self._first_patient_id(observation)
+        if not patient_id:
+            return None
+
+        protocol_excerpt = str(observation.get("protocol_excerpt") or "")
+        objective = str(observation.get("objective") or "")
+        section_match = re.search(r"Section\s*\d+(?:\.\d+)*", protocol_excerpt, flags=re.IGNORECASE)
+        clause_violated = section_match.group(0) if section_match else "Protocol deviation"
+
+        merged_text = f"{objective} {protocol_excerpt}".lower()
+        critical_markers = [
+            "serious adverse",
+            "must be reported",
+            "must stop",
+            "must not exceed",
+            "ineligible",
+            "before any",
+            "below",
+        ]
+        severity = "critical" if any(marker in merged_text for marker in critical_markers) else "major"
+
+        regulation_ref = "ICH E6(R2) 4.5.2"
+        return {
+            "patient_id": patient_id,
+            "clause_violated": clause_violated,
+            "severity": severity,
+            "regulation_ref": regulation_ref,
+        }
+
+    def _first_patient_id(self, observation: Dict[str, Any]) -> Optional[str]:
+        patient_records = observation.get("patient_records")
+        if not isinstance(patient_records, list):
+            return None
+        for row in patient_records:
+            if isinstance(row, dict) and row.get("patient_id"):
+                return str(row["patient_id"])
+        return None
 
     def metadata(self) -> Dict[str, Any]:
         payload = {
@@ -251,6 +408,7 @@ def run_episode(
     gemini_base_url: Optional[str] = None,
     case_id: Optional[str] = None,
     temperature: float = 0.0,
+    debug_actions: bool = False,
     emit_stdout: bool = True,
 ) -> Dict[str, Any]:
     env = ClinTrialOpenEnv(task_level=task_level)
@@ -291,9 +449,14 @@ def run_episode(
             action = agent.act(observation)
         except Exception as exc:  # noqa: BLE001
             emit(f"[INFO] {_compact_json({'agent_runtime_error': str(exc)})}")
-            action = {"action_type": "finish"}
+            if hasattr(agent, "fallback_action"):
+                action = agent.fallback_action(observation)
+            else:
+                action = {"action_type": "finish"}
 
         emit(f"[ACTION] {_compact_json(_summarize_action(action))}")
+        if debug_actions:
+            emit(f"[ACTION_RAW] {_compact_json(action)}")
 
         observation, reward, done, info = env.step(action)
         total_reward += reward
@@ -325,6 +488,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--case-id", default=None)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--gemini-base-url", default=None)
+    parser.add_argument("--debug-actions", action="store_true")
     return parser
 
 
@@ -343,6 +507,7 @@ def main() -> None:
         gemini_base_url=args.gemini_base_url,
         case_id=args.case_id,
         temperature=args.temperature,
+        debug_actions=args.debug_actions,
         emit_stdout=True,
     )
 

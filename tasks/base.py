@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from random import Random
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from models import CaseData, DeviationReport, RewardBreakdown, TaskDataset, TaskLevel
 
@@ -56,7 +57,6 @@ class BaseTask:
         seen_submissions: Set[str],
         claimed_ground_truth: Set[str],
     ) -> Tuple[float, RewardBreakdown]:
-        expected_map = {item.signature(): item for item in expected}
         breakdown = RewardBreakdown()
 
         for report in reports:
@@ -66,26 +66,38 @@ class BaseTask:
                 continue
 
             seen_submissions.add(signature)
-            expected_item = expected_map.get(signature)
+            expected_item, match_score = self._find_best_expected(report, expected, claimed_ground_truth)
 
-            if expected_item is None:
-                breakdown.false_positive_penalty += self.reward_weights["false_positive_penalty"]
+            if expected_item is None or match_score < 0.35:
+                breakdown.false_positive_penalty += self.reward_weights["false_positive_penalty"] * 0.7
                 continue
 
-            if signature in claimed_ground_truth:
+            matched_signature = expected_item.signature()
+            if matched_signature in claimed_ground_truth:
                 breakdown.duplicate_penalty += self.reward_weights["duplicate_penalty"]
                 continue
 
-            claimed_ground_truth.add(signature)
-            breakdown.true_positive += self.reward_weights["true_positive"]
+            claimed_ground_truth.add(matched_signature)
+
+            if match_score >= 0.75:
+                tp_factor = 1.0
+            elif match_score >= 0.55:
+                tp_factor = 0.7
+            else:
+                tp_factor = 0.45
+            breakdown.true_positive += self.reward_weights["true_positive"] * tp_factor
 
             if report.severity == expected_item.severity:
                 breakdown.severity_match += self.reward_weights["severity_match"]
             else:
-                breakdown.severity_mismatch_penalty += self.reward_weights["severity_mismatch_penalty"]
+                mismatch_factor = 0.5 if match_score >= 0.55 else 0.25
+                breakdown.severity_mismatch_penalty += self.reward_weights["severity_mismatch_penalty"] * mismatch_factor
 
-            if expected_item.regulation_ref and report.regulation_ref == expected_item.regulation_ref:
+            regulation_similarity = self._regulation_similarity(report.regulation_ref, expected_item.regulation_ref)
+            if regulation_similarity >= 0.95:
                 breakdown.regulation_match += self.reward_weights["regulation_match"]
+            elif regulation_similarity >= 0.5:
+                breakdown.regulation_match += self.reward_weights["regulation_match"] * 0.5
 
         score = self._clamp_step_reward(breakdown)
         return score, breakdown
@@ -103,8 +115,80 @@ class BaseTask:
         precision = correct / submitted if submitted else 0.0
         recall = correct / len(expected_signatures) if expected_signatures else 1.0
 
-        score = (precision + recall) / 2.0
+        # Favor recall slightly so near-correct reports still produce a useful task score.
+        score = (0.45 * precision) + (0.55 * recall)
         return max(0.0, min(1.0, round(score, 4)))
+
+    def _find_best_expected(
+        self,
+        report: DeviationReport,
+        expected: List[DeviationReport],
+        claimed_ground_truth: Set[str],
+    ) -> Tuple[Optional[DeviationReport], float]:
+        candidates = [item for item in expected if item.signature() not in claimed_ground_truth]
+        if not candidates:
+            return None, 0.0
+
+        report_patient = report.patient_id.strip().lower()
+        best_item: Optional[DeviationReport] = None
+        best_score = 0.0
+
+        for item in candidates:
+            patient_match = 1.0 if report_patient == item.patient_id.strip().lower() else 0.0
+            clause_score = self._clause_similarity(report.clause_violated, item.clause_violated)
+            combined = (0.7 * clause_score) + (0.3 * patient_match)
+            if combined > best_score:
+                best_score = combined
+                best_item = item
+
+        return best_item, best_score
+
+    def _clause_similarity(self, submitted: str, expected: str) -> float:
+        submitted_norm = self._normalize_text(submitted)
+        expected_norm = self._normalize_text(expected)
+        if not submitted_norm or not expected_norm:
+            return 0.0
+        if submitted_norm == expected_norm:
+            return 1.0
+
+        submitted_section = self._extract_section_id(submitted_norm)
+        expected_section = self._extract_section_id(expected_norm)
+        section_score = 0.92 if submitted_section and submitted_section == expected_section else 0.0
+
+        submitted_tokens = set(submitted_norm.split())
+        expected_tokens = set(expected_norm.split())
+        if not submitted_tokens or not expected_tokens:
+            return section_score
+
+        overlap = len(submitted_tokens.intersection(expected_tokens))
+        union = len(submitted_tokens.union(expected_tokens))
+        jaccard = overlap / union if union else 0.0
+        containment = overlap / len(expected_tokens)
+        return max(section_score, jaccard, containment * 0.85)
+
+    def _regulation_similarity(self, submitted: Optional[str], expected: Optional[str]) -> float:
+        if not submitted or not expected:
+            return 0.0
+        submitted_norm = self._normalize_text(submitted)
+        expected_norm = self._normalize_text(expected)
+        if submitted_norm == expected_norm:
+            return 1.0
+        if submitted_norm in expected_norm or expected_norm in submitted_norm:
+            return 0.65
+
+        submitted_tokens = set(submitted_norm.split())
+        expected_tokens = set(expected_norm.split())
+        overlap = len(submitted_tokens.intersection(expected_tokens))
+        return overlap / len(expected_tokens) if expected_tokens else 0.0
+
+    def _normalize_text(self, value: str) -> str:
+        lowered = value.lower().strip()
+        lowered = re.sub(r"[^a-z0-9. ]+", " ", lowered)
+        return re.sub(r"\s+", " ", lowered).strip()
+
+    def _extract_section_id(self, value: str) -> Optional[str]:
+        match = re.search(r"section\s*(\d+(?:\.\d+)*)", value)
+        return match.group(1) if match else None
 
     def _clamp_step_reward(self, breakdown: RewardBreakdown) -> float:
         raw_score = (

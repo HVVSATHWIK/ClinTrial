@@ -304,6 +304,8 @@ UI_CSS = """
 
 .top-guide-panel .prose {
     color: #35556d !important;
+    font-size: 13px;
+    line-height: 1.38;
 }
 
 .top-guide-dropdown {
@@ -328,6 +330,7 @@ UI_CSS = """
     max-height: none !important;
     overflow: visible !important;
     border: none !important;
+    padding-top: 6px !important;
 }
 
 .main-run-row {
@@ -821,25 +824,24 @@ def _task_guide_text(task_level: str) -> str:
 
     if normalized == "easy":
         task_focus = "Single, high-signal deviation in one patient profile."
-        examples = "Examples: consent timing miss, prohibited medication, out-of-window visit."
+        pattern = "Consent timing miss or prohibited medication."
     elif normalized == "hard":
-        task_focus = "Cross-document, multi-violation reasoning with temporal contradictions."
-        examples = "Examples: dose sequencing issue + accountability mismatch + eligibility conflict."
+        task_focus = "Cross-document, multi-violation reasoning with timeline conflicts."
+        pattern = "Dose sequencing plus accountability or eligibility conflict."
     else:
-        task_focus = "Multi-violation review requiring consistency checks across evidence."
-        examples = "Examples: delayed SAE report plus missing follow-up compliance evidence."
+        task_focus = "Multi-violation review with consistency checks across evidence."
+        pattern = "Delayed SAE report and missing follow-up compliance evidence."
 
     return (
         "### Clinical Task Snapshot\n"
         f"- **Current Level:** {normalized.title()}\n"
         f"- **Audit Focus:** {task_focus}\n"
-        f"- **Typical Pattern:** {examples}\n"
+        f"- **Typical Pattern:** {pattern}\n"
         "\n"
-        "### What To Configure\n"
-        "1. **Task Level** for audit complexity.\n"
-        "2. **Agent Mode** (baseline or openai).\n"
-        "3. In openai mode only: **Provider** and **Model ID**.\n"
-        "4. **Seed** and optional **Case ID**.\n"
+        "### Configure\n"
+        "- **Task Level** and **Agent Mode**.\n"
+        "- **Seed** and optional **Case ID**.\n"
+        "- In openai mode only: **Provider** and **Model ID**.\n"
         "\n"
         "### Important\n"
         "- Protocol and patient records are loaded automatically from benchmark datasets.\n"

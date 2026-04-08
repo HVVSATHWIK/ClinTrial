@@ -480,6 +480,40 @@ def _build_result_summary_html(logs: List[str], total_reward: float, task_score:
     )
 
 
+def _task_guide_text(task_level: str) -> str:
+    normalized = task_level.lower().strip()
+
+    if normalized == "easy":
+        task_focus = "Single, obvious protocol deviation in one patient record."
+        examples = "Examples: missing consent timing, visit window miss, prohibited medication."
+    elif normalized == "hard":
+        task_focus = "Multi-violation reasoning with conflicting records and temporal constraints."
+        examples = "Examples: treatment sequencing + accountability mismatch + eligibility contradiction."
+    else:
+        task_focus = "Multiple deviations requiring cross-document consistency checks."
+        examples = "Examples: delayed SAE reporting + missing secondary compliance event."
+
+    return (
+        "### Clinical Task Guide\n"
+        f"- **Current task level:** {normalized.title()}\n"
+        f"- **What this task evaluates:** {task_focus}\n"
+        f"- **Clinical pattern examples:** {examples}\n"
+        "\n"
+        "### What You Input\n"
+        "- **Task Level:** selects the benchmark difficulty and dataset.\n"
+        "- **Agent Mode:** baseline (deterministic) or openai (LLM-driven).\n"
+        "- **LLM Provider / Model ID:** used only in openai mode.\n"
+        "- **Seed:** controls reproducibility.\n"
+        "- **Optional Case ID:** targets one specific case (for example, EASY-001).\n"
+        "\n"
+        "### What You Do Not Input\n"
+        "- Protocol text and patient records are loaded automatically from the clinical datasets.\n"
+        "\n"
+        "### Stability Note\n"
+        "- These controls do **not** change environment rules, reward logic, or validator API behavior."
+    )
+
+
 def evaluate(
     task_level: str,
     agent_type: str,
@@ -600,6 +634,9 @@ def build_demo() -> gr.Blocks:
                     "5. Click Run Episode"
                 )
 
+                with gr.Accordion("Clinical Task Guide", open=False):
+                    task_guide = gr.Markdown(value=_task_guide_text("medium"))
+
             with gr.Column(scale=2):
                 result_summary = gr.HTML()
                 run_insight = gr.Markdown()
@@ -633,6 +670,12 @@ def build_demo() -> gr.Blocks:
                 score_breakdown,
                 logs,
             ],
+        )
+
+        task_level.change(
+            fn=_task_guide_text,
+            inputs=[task_level],
+            outputs=[task_guide],
         )
 
     return demo

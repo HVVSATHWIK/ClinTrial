@@ -15,6 +15,63 @@ from inference import run_episode
 
 
 UI_CSS = """
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600&display=swap');
+
+:root {
+    --bg-page: #f3f8f8;
+    --panel-bg: #ffffff;
+    --panel-muted: #f8fbfc;
+    --border: #d7e4ea;
+    --text-main: #0f172a;
+    --text-muted: #475569;
+    --accent: #0f766e;
+    --accent-soft: #ccfbf1;
+}
+
+.gradio-container {
+    background:
+        radial-gradient(circle at 0% 0%, #d8f3ea 0%, rgba(216, 243, 234, 0) 40%),
+        radial-gradient(circle at 100% 0%, #dbeafe 0%, rgba(219, 234, 254, 0) 46%),
+        var(--bg-page);
+    color: var(--text-main);
+    font-family: "IBM Plex Sans", sans-serif;
+}
+
+h1,
+h2,
+h3 {
+    font-family: "IBM Plex Serif", serif;
+    color: #0b1324;
+    letter-spacing: 0.2px;
+}
+
+.control-panel,
+.result-panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.clinical-note {
+    border: 1px solid #a7f3d0;
+    background: #ecfdf5;
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: #065f46;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+.guide-panel {
+    border: 1px solid #bae6fd;
+    background: #f0f9ff;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 8px;
+}
+
 .summary-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -29,33 +86,33 @@ UI_CSS = """
 }
 
 .summary-card {
-    border: 1px solid #334155;
+    border: 1px solid var(--border);
     border-radius: 10px;
     padding: 10px 12px;
-    background: #0f172a;
+    background: var(--panel-muted);
 }
 
 .summary-label {
     font-size: 12px;
-    color: #94a3b8;
+    color: var(--text-muted);
     margin-bottom: 4px;
 }
 
 .summary-value {
-    font-size: 20px;
+    font-size: 22px;
     line-height: 1.1;
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--text-main);
 }
 
 .outcome-banner {
     margin-top: 8px;
-    border: 1px solid #1d4ed8;
-    border-left: 4px solid #2563eb;
+    border: 1px solid #99f6e4;
+    border-left: 4px solid var(--accent);
     border-radius: 8px;
     padding: 10px 12px;
-    background: #0b1220;
-    color: #dbeafe;
+    background: #f0fdfa;
+    color: #134e4a;
     font-size: 13px;
 }
 
@@ -63,17 +120,19 @@ UI_CSS = """
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
+    background: #ffffff;
 }
 
 .violations-table th,
 .violations-table td {
-    border: 1px solid #334155;
+    border: 1px solid var(--border);
     padding: 8px 10px;
     text-align: left;
 }
 
 .violations-table th {
-    background: #0f172a;
+    background: #eef6f8;
+    color: #1e293b;
     font-weight: 700;
 }
 
@@ -86,18 +145,18 @@ UI_CSS = """
 }
 
 .severity-critical {
-    background: #7f1d1d;
-    color: #fecaca;
+    background: #fee2e2;
+    color: #991b1b;
 }
 
 .severity-major {
-    background: #78350f;
-    color: #fde68a;
+    background: #ffedd5;
+    color: #9a3412;
 }
 
 .severity-minor {
-    background: #1f2937;
-    color: #cbd5e1;
+    background: #e2e8f0;
+    color: #334155;
 }
 """
 
@@ -484,33 +543,72 @@ def _task_guide_text(task_level: str) -> str:
     normalized = task_level.lower().strip()
 
     if normalized == "easy":
-        task_focus = "Single, obvious protocol deviation in one patient record."
-        examples = "Examples: missing consent timing, visit window miss, prohibited medication."
+        task_focus = "Single, high-signal deviation in one patient profile."
+        examples = "Examples: consent timing miss, prohibited medication, out-of-window visit."
     elif normalized == "hard":
-        task_focus = "Multi-violation reasoning with conflicting records and temporal constraints."
-        examples = "Examples: treatment sequencing + accountability mismatch + eligibility contradiction."
+        task_focus = "Cross-document, multi-violation reasoning with temporal contradictions."
+        examples = "Examples: dose sequencing issue + accountability mismatch + eligibility conflict."
     else:
-        task_focus = "Multiple deviations requiring cross-document consistency checks."
-        examples = "Examples: delayed SAE reporting + missing secondary compliance event."
+        task_focus = "Multi-violation review requiring consistency checks across evidence."
+        examples = "Examples: delayed SAE report plus missing follow-up compliance evidence."
 
     return (
         "### Clinical Task Guide\n"
-        f"- **Current task level:** {normalized.title()}\n"
-        f"- **What this task evaluates:** {task_focus}\n"
-        f"- **Clinical pattern examples:** {examples}\n"
+        f"- **Current Level:** {normalized.title()}\n"
+        f"- **Audit Focus:** {task_focus}\n"
+        f"- **Case Pattern Examples:** {examples}\n"
         "\n"
-        "### What You Input\n"
-        "- **Task Level:** selects the benchmark difficulty and dataset.\n"
-        "- **Agent Mode:** baseline (deterministic) or openai (LLM-driven).\n"
-        "- **LLM Provider / Model ID:** used only in openai mode.\n"
-        "- **Seed:** controls reproducibility.\n"
-        "- **Optional Case ID:** targets one specific case (for example, EASY-001).\n"
+        "### Run Checklist\n"
+        "1. Set **Task Level** for audit complexity.\n"
+        "2. Choose **Agent Mode** (baseline or openai).\n"
+        "3. If openai mode is selected, confirm **Provider** and **Model ID**.\n"
+        "4. Keep or change **Seed** for reproducibility.\n"
+        "5. Optional: provide **Case ID** (for example, EASY-001).\n"
         "\n"
-        "### What You Do Not Input\n"
-        "- Protocol text and patient records are loaded automatically from the clinical datasets.\n"
+        "### Inputs You Provide\n"
+        "- Task level, mode, optional model settings, seed, and optional case id.\n"
         "\n"
-        "### Stability Note\n"
-        "- These controls do **not** change environment rules, reward logic, or validator API behavior."
+        "### Inputs You Do Not Provide\n"
+        "- Protocol text and patient records are loaded automatically from benchmark datasets.\n"
+        "\n"
+        "### Scoring Behavior\n"
+        "- Correct and complete deviation detection improves score.\n"
+        "- Unnecessary repeated actions reduce decision-efficiency reward.\n"
+        "\n"
+        "### Platform Stability\n"
+        "- UI controls do **not** modify validator endpoints, environment rules, or reward logic."
+    )
+
+
+def _show_task_guide(task_level: str):
+    return (
+        gr.update(value=_task_guide_text(task_level), visible=True),
+        gr.update(visible=False),
+        gr.update(visible=True),
+    )
+
+
+def _hide_task_guide():
+    return (
+        gr.update(visible=False),
+        gr.update(visible=True),
+        gr.update(visible=False),
+    )
+
+
+def _agent_mode_ui(agent_type: str):
+    normalized = agent_type.lower().strip()
+    if normalized == "openai":
+        return (
+            gr.update(interactive=True),
+            gr.update(interactive=True),
+            "LLM mode is active. Provider and Model ID are used for this run.",
+        )
+
+    return (
+        gr.update(interactive=False),
+        gr.update(interactive=False),
+        "Baseline mode is active. Provider and Model ID are locked and ignored.",
     )
 
 
@@ -583,12 +681,13 @@ def build_demo() -> gr.Blocks:
         )
 
         with gr.Row(equal_height=False):
-            with gr.Column(scale=1):
-                gr.Markdown("### Controls")
+            with gr.Column(scale=1, elem_classes=["control-panel"]):
+                gr.Markdown("### Run Setup")
                 gr.Markdown(
                     "Select configuration and click **Run Episode**. "
                     "You do not type protocol text or patient data manually; the environment loads case data automatically."
                 )
+
                 task_level = gr.Dropdown(
                     choices=["easy", "medium", "hard"],
                     value="medium",
@@ -606,11 +705,13 @@ def build_demo() -> gr.Blocks:
                     value="gemini-openai",
                     label="LLM Provider",
                     info="Used only when Agent Mode is openai.",
+                    interactive=False,
                 )
                 model_name = gr.Textbox(
                     value="gemini-2.5-flash-lite",
                     label="Model ID",
                     info="Keep default unless you intentionally switch models.",
+                    interactive=False,
                 )
                 seed = gr.Number(
                     value=7,
@@ -623,10 +724,25 @@ def build_demo() -> gr.Blocks:
                     label="Optional Case ID",
                     placeholder="Examples: EASY-001, MED-002, HARD-003 (leave blank for random case)",
                 )
-                run_btn = gr.Button("Run Episode", variant="primary")
+
+                mode_hint = gr.Markdown(
+                    "Baseline mode is active. Provider and Model ID are locked and ignored.",
+                    elem_classes=["clinical-note"],
+                )
+
+                with gr.Row():
+                    run_btn = gr.Button("Run Episode", variant="primary")
+                    show_guide_btn = gr.Button("Show Task Guide")
+                    hide_guide_btn = gr.Button("Hide Task Guide", visible=False)
+
+                task_guide = gr.Markdown(
+                    value=_task_guide_text("medium"),
+                    visible=False,
+                    elem_classes=["guide-panel"],
+                )
 
                 gr.Markdown(
-                    "**Quick Input Guide**\n"
+                    "### Quick Input Guide\n"
                     "1. Choose Task Level\n"
                     "2. Choose Agent Mode\n"
                     "3. If openai mode: keep gemini-openai + model id\n"
@@ -634,20 +750,19 @@ def build_demo() -> gr.Blocks:
                     "5. Click Run Episode"
                 )
 
-                with gr.Accordion("Clinical Task Guide", open=False):
-                    task_guide = gr.Markdown(value=_task_guide_text("medium"))
-
-            with gr.Column(scale=2):
-                result_summary = gr.HTML()
-                run_insight = gr.Markdown()
+            with gr.Column(scale=2, elem_classes=["result-panel"]):
+                result_summary = gr.HTML(
+                    value='<div class="outcome-banner">Run an episode to view a scored clinical audit outcome.</div>'
+                )
+                run_insight = gr.Markdown("Insight will appear after the first run.")
                 selected_case_id = gr.Textbox(label="Selected Case ID", interactive=False)
 
                 with gr.Tabs():
-                    with gr.Tab("Detected Violations"):
+                    with gr.Tab("Detected Deviations"):
                         detected_table = gr.HTML(elem_classes=["violations-table"])
                         score_breakdown = gr.Markdown()
 
-                    with gr.Tab("Case Details"):
+                    with gr.Tab("Case Context"):
                         objective = gr.Textbox(label="Objective", lines=2, interactive=False)
                         protocol_excerpt = gr.Textbox(label="Protocol Excerpt", lines=6, interactive=False)
                         patient_records_json = gr.Textbox(label="Patient Records", lines=10, interactive=False)
@@ -676,6 +791,23 @@ def build_demo() -> gr.Blocks:
             fn=_task_guide_text,
             inputs=[task_level],
             outputs=[task_guide],
+        )
+
+        show_guide_btn.click(
+            fn=_show_task_guide,
+            inputs=[task_level],
+            outputs=[task_guide, show_guide_btn, hide_guide_btn],
+        )
+
+        hide_guide_btn.click(
+            fn=_hide_task_guide,
+            outputs=[task_guide, show_guide_btn, hide_guide_btn],
+        )
+
+        agent_type.change(
+            fn=_agent_mode_ui,
+            inputs=[agent_type],
+            outputs=[llm_provider, model_name, mode_hint],
         )
 
     return demo

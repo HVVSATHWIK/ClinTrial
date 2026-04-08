@@ -1,3 +1,13 @@
+---
+title: ClinTrial OpenEnv
+emoji: 🧪
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_file: app.py
+pinned: false
+---
+
 # ClinTrialEnv (OpenEnv-Compatible)
 
 ClinTrialEnv is a clinical trial auditing benchmark environment aligned to an OpenEnv-style interface.

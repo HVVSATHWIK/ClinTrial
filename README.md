@@ -63,6 +63,26 @@ Three explicit benchmark levels are defined:
 - Max steps: 50
 - Dataset: `data/hard_cases.json`
 
+## Difficulty Rationale
+
+The benchmark is intentionally structured to differentiate agent capability across levels.
+
+- Easy: single, obvious deviation in one patient context.
+- Medium: multi-deviation detection with cross-document consistency and timing constraints.
+- Hard: multi-violation, conflicting signals, and temporal/accountability reasoning across records.
+
+This prevents flat scoring behavior and makes performance differences between agents observable.
+
+## Expected Score Bands
+
+For a standard non-oracle LLM agent, expected ranges are:
+
+- Easy: `0.8` to `1.0`
+- Medium: `0.6` to `0.8`
+- Hard: `0.4` to `0.7`
+
+These bands are intended as sanity targets for evaluator interpretation, not hard constraints.
+
 ## Reward Shaping
 
 Reward shaping includes both positive and negative components.
@@ -183,3 +203,13 @@ Keep these at root for competition submission:
 - Baseline mode is deterministic and reproducible with `--seed`.
 - OpenAI mode is available but may vary based on model behavior.
 - If OpenAI key is missing, inference falls back to deterministic baseline.
+- Environment includes robust handling for model API failures to maintain episode continuity and preserve evaluability.
+
+## Final Submission Checklist
+
+- Rotate any previously exposed Gemini key.
+- Add the rotated key to Hugging Face Space secrets as `GEMINI_API_KEY`.
+- Run one full Space smoke test and confirm:
+  - no crash,
+  - valid `[START]/[STEP]/[END]` logs,
+  - non-zero scores for at least easy and medium.

@@ -186,7 +186,7 @@ def build_demo() -> gr.Blocks:
                 choices=["gemini-openai", "openai"], value="gemini-openai", label="LLM Provider"
             )
 
-        model_name = gr.Textbox(value="gemini-2.0-flash", label="Model")
+        model_name = gr.Textbox(value="gemini-2.5-flash-lite", label="Model")
 
         with gr.Row():
             seed = gr.Number(value=7, precision=0, label="Seed")

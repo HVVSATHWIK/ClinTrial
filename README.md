@@ -143,7 +143,7 @@ Run with Gemini through OpenAI client (recommended path for Gemini preference):
 
 ```bash
 set GEMINI_API_KEY=your_gemini_key_here
-python inference.py --task medium --agent openai --llm-provider gemini-openai --model gemini-2.0-flash --seed 7
+python inference.py --task medium --agent openai --llm-provider gemini-openai --model gemini-2.5-flash-lite --seed 7
 ```
 
 Run with OpenAI endpoint:

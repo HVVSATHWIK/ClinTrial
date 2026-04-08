@@ -385,7 +385,7 @@ def _resolve_model_for_provider(llm_provider: str, model_name: str) -> str:
     if candidate:
         return candidate
     if normalized_provider == "gemini-openai":
-        return "gemini-2.0-flash"
+        return "gemini-2.5-flash-lite"
     return "gpt-4.1-mini"
 
 

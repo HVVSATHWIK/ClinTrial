@@ -32,15 +32,27 @@ UI_CSS = """
 .dark .gradio-container {
     --body-background-fill: var(--bg-page);
     --body-text-color: var(--text-main);
+    --body-text-color-subdued: var(--text-muted);
     --block-background-fill: var(--panel-bg);
+    --block-border-color: var(--border);
+    --block-title-text-color: var(--text-main);
+    --block-label-text-color: var(--text-main);
+    --background-fill-primary: #ffffff;
+    --background-fill-secondary: #f4fbff;
     --input-background-fill: #ffffff;
+    --input-background-fill-focus: #ffffff;
     --input-border-color: #c0d2df;
+    --input-border-color-focus: #8bb9d3;
     --button-primary-background-fill: var(--accent);
     --button-primary-background-fill-hover: var(--accent-strong);
     --button-primary-text-color: #ffffff;
     --button-secondary-background-fill: #ffffff;
+    --button-secondary-background-fill-hover: #eaf5fb;
     --button-secondary-border-color: #b8cedd;
+    --button-secondary-border-color-hover: #9ec2d8;
     --button-secondary-text-color: #1e293b;
+    --button-secondary-text-color-hover: #15384d;
+    color-scheme: light !important;
     background:
         radial-gradient(circle at 0% 0%, #d4f0ef 0%, rgba(212, 240, 239, 0) 38%),
         radial-gradient(circle at 100% 0%, #e2ecfb 0%, rgba(226, 236, 251, 0) 44%),
@@ -114,9 +126,42 @@ UI_CSS = """
     border-color: #b9ccda !important;
 }
 
+.gradio-container select option {
+    background: #ffffff !important;
+    color: var(--text-main) !important;
+}
+
 .gradio-container input::placeholder,
 .gradio-container textarea::placeholder {
     color: #64748b !important;
+}
+
+.gradio-container [role="listbox"],
+.gradio-container .options,
+.gradio-container .dropdown-menu,
+.gradio-container .choices__list--dropdown {
+    background: #ffffff !important;
+    color: var(--text-main) !important;
+    border: 1px solid #b9ccda !important;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1) !important;
+}
+
+.gradio-container [role="option"],
+.gradio-container .option,
+.gradio-container .dropdown-item,
+.gradio-container .choices__item {
+    background: #ffffff !important;
+    color: var(--text-main) !important;
+}
+
+.gradio-container [role="option"]:hover,
+.gradio-container [role="option"][aria-selected="true"],
+.gradio-container .option:hover,
+.gradio-container .option.selected,
+.gradio-container .dropdown-item:hover,
+.gradio-container .choices__item--selectable.is-highlighted {
+    background: #eaf5fb !important;
+    color: #0f172a !important;
 }
 
 .gradio-container [role="tab"] {
@@ -133,8 +178,23 @@ UI_CSS = """
     font-weight: 600 !important;
 }
 
-.gradio-container button:hover {
-    filter: saturate(1.05);
+.gradio-container .secondary-wrap button:hover,
+.gradio-container button.secondary:hover {
+    background: #eaf5fb !important;
+    color: #15384d !important;
+    border-color: #9ec2d8 !important;
+}
+
+.gradio-container .primary-wrap button,
+.gradio-container button.primary {
+    background: var(--accent) !important;
+    color: #ffffff !important;
+}
+
+.gradio-container .primary-wrap button:hover,
+.gradio-container button.primary:hover {
+    background: var(--accent-strong) !important;
+    color: #ffffff !important;
 }
 
 .usage-hero {

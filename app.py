@@ -99,10 +99,6 @@ UI_CSS = """
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
-.result-panel {
-    min-height: 640px;
-}
-
 .clinical-note {
     border: 1px solid #bae6fd;
     background: #eff9ff;
@@ -334,7 +330,23 @@ UI_CSS = """
 }
 
 .main-run-row {
-    align-items: stretch !important;
+    align-items: flex-start !important;
+}
+
+.result-meta-row {
+    margin-bottom: 8px;
+}
+
+.result-note {
+    margin: 0 0 10px !important;
+    border: 1px solid #d3e6f2;
+    border-radius: 8px;
+    background: #f8fcff;
+    padding: 8px 10px;
+}
+
+.result-case-id {
+    margin-top: 2px;
 }
 
 .empty-state {
@@ -995,7 +1007,7 @@ def build_demo() -> gr.Blocks:
                     with gr.Accordion("Task Guide Dropdown", open=False, elem_classes=["top-guide-dropdown"]):
                         task_guide_dropdown = gr.Markdown(value=_task_guide_text("medium"))
 
-        with gr.Row(equal_height=True, elem_classes=["main-run-row"]):
+        with gr.Row(equal_height=False, elem_classes=["main-run-row"]):
             with gr.Column(scale=1, elem_classes=["control-panel"]):
                 gr.Markdown("### Run Setup")
                 gr.Markdown(
@@ -1050,11 +1062,24 @@ def build_demo() -> gr.Blocks:
                 gr.Markdown("Task Guide is available in the top dropdown beside Clinical Runner Guide.")
 
             with gr.Column(scale=2, elem_classes=["result-panel"]):
-                result_summary = gr.HTML(
-                    value='<div class="outcome-banner">Run an episode to view a scored clinical audit outcome.</div>'
+                with gr.Row(equal_height=False, elem_classes=["result-meta-row"]):
+                    with gr.Column(scale=3):
+                        result_summary = gr.HTML(
+                            value='<div class="outcome-banner">Run an episode to view a scored clinical audit outcome.</div>'
+                        )
+                    with gr.Column(scale=2):
+                        selected_case_id = gr.Textbox(
+                            label="Selected Case ID",
+                            value="Not selected yet",
+                            lines=1,
+                            interactive=False,
+                            elem_classes=["result-case-id"],
+                        )
+
+                run_insight = gr.Markdown(
+                    "Insight will appear here after the first run.",
+                    elem_classes=["result-note"],
                 )
-                run_insight = gr.Markdown("Insight will appear after the first run.")
-                selected_case_id = gr.Textbox(label="Selected Case ID", interactive=False)
 
                 with gr.Tabs():
                     with gr.Tab("Detected Deviations"):
@@ -1065,13 +1090,32 @@ def build_demo() -> gr.Blocks:
                         score_breakdown = gr.Markdown("No run executed yet.")
 
                     with gr.Tab("Case Context"):
-                        objective = gr.Textbox(label="Objective", lines=2, interactive=False)
-                        protocol_excerpt = gr.Textbox(label="Protocol Excerpt", lines=6, interactive=False)
-                        patient_records_json = gr.Textbox(label="Patient Records", lines=10, interactive=False)
+                        objective = gr.Textbox(
+                            label="Objective",
+                            lines=2,
+                            value="Run an episode to load objective text.",
+                            interactive=False,
+                        )
+                        protocol_excerpt = gr.Textbox(
+                            label="Protocol Excerpt",
+                            lines=6,
+                            value="Run an episode to load protocol excerpt.",
+                            interactive=False,
+                        )
+                        patient_records_json = gr.Textbox(
+                            label="Patient Records",
+                            lines=10,
+                            value="Run an episode to load patient records.",
+                            interactive=False,
+                        )
 
                     with gr.Tab("Execution Trace"):
                         with gr.Accordion("View Execution Trace", open=False):
-                            logs = gr.Textbox(label="Execution Trace", lines=22)
+                            logs = gr.Textbox(
+                                label="Execution Trace",
+                                lines=18,
+                                value="Run an episode to load execution trace.",
+                            )
 
         run_btn.click(
             fn=evaluate,

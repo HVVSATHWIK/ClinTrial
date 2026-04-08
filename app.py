@@ -137,6 +137,89 @@ UI_CSS = """
     filter: saturate(1.05);
 }
 
+.usage-hero {
+    border: 1px solid #b8d5e5;
+    border-radius: 16px;
+    padding: 14px;
+    background: linear-gradient(135deg, #ffffff 0%, #f4fbff 100%);
+    margin: 8px 0 16px;
+}
+
+.usage-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: start;
+    margin-bottom: 10px;
+}
+
+.usage-title {
+    margin: 0;
+    color: #0b3550;
+    font-size: 24px;
+}
+
+.usage-subtitle {
+    margin: 4px 0 0;
+    color: #36556d;
+    font-size: 14px;
+}
+
+.usage-pill {
+    border: 1px solid #a7d8ef;
+    border-radius: 999px;
+    background: #ecf7ff;
+    color: #0b4f63;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 10px;
+    white-space: nowrap;
+}
+
+.usage-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.usage-card {
+    border: 1px solid #cbe0ec;
+    border-radius: 12px;
+    padding: 12px;
+    background: #ffffff;
+}
+
+.usage-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: #ebf7ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+}
+
+.usage-card-title {
+    margin: 0 0 4px;
+    color: #12374c;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.usage-card-text {
+    margin: 0;
+    color: #3c5a70;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+@media (max-width: 980px) {
+    .usage-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .summary-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -677,6 +760,57 @@ def _agent_mode_ui(agent_type: str):
     )
 
 
+def _usage_hero_html() -> str:
+        return """
+<section class="usage-hero">
+    <div class="usage-header">
+        <div>
+            <h2 class="usage-title">Clinical Runner Guide</h2>
+            <p class="usage-subtitle">This benchmark auto-loads protocol and patient records. You only configure and execute the audit run.</p>
+        </div>
+        <div class="usage-pill">Clinical Audit Workflow</div>
+    </div>
+
+    <div class="usage-grid">
+        <article class="usage-card">
+            <div class="usage-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="6" y="3" width="12" height="18" rx="2" stroke="#0b5f78" stroke-width="1.8"/>
+                    <path d="M9 8H15" stroke="#0b5f78" stroke-width="1.8" stroke-linecap="round"/>
+                    <path d="M9 12H15" stroke="#0b5f78" stroke-width="1.8" stroke-linecap="round"/>
+                    <path d="M9 16H13" stroke="#0b5f78" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <h3 class="usage-card-title">1. Configure Run</h3>
+            <p class="usage-card-text">Set task level, choose baseline or openai mode, keep seed for reproducibility, and optionally enter a case id.</p>
+        </article>
+
+        <article class="usage-card">
+            <div class="usage-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 12H7L9 8L12 16L15 10L17 12H21" stroke="#0b5f78" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="2" y="4" width="20" height="16" rx="3" stroke="#0b5f78" stroke-width="1.5"/>
+                </svg>
+            </div>
+            <h3 class="usage-card-title">2. Run Audit Episode</h3>
+            <p class="usage-card-text">Click Run Episode once. The environment reads the case and submits protocol deviation actions step by step.</p>
+        </article>
+
+        <article class="usage-card">
+            <div class="usage-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 3L19 6V11C19 15.1 16.4 18.8 12 20C7.6 18.8 5 15.1 5 11V6L12 3Z" stroke="#0b5f78" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M9 11.5L11.2 13.7L15.5 9.5" stroke="#0b5f78" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <h3 class="usage-card-title">3. Review Evidence</h3>
+            <p class="usage-card-text">Check detected deviations, case context, and execution trace. Score reflects clinical correctness and decision efficiency.</p>
+        </article>
+    </div>
+</section>
+"""
+
+
 def evaluate(
     task_level: str,
     agent_type: str,
@@ -744,13 +878,13 @@ def build_demo() -> gr.Blocks:
             "This environment simulates clinical trial auditing. The agent reads protocol and patient records, "
             "submits protocol deviations, and is evaluated on both correctness and decision efficiency."
         )
+        gr.HTML(_usage_hero_html())
 
         with gr.Row(equal_height=False):
             with gr.Column(scale=1, elem_classes=["control-panel"]):
                 gr.Markdown("### Run Setup")
                 gr.Markdown(
-                    "Select configuration and click **Run Episode**. "
-                    "You do not type protocol text or patient data manually; the environment loads case data automatically."
+                    "Use the Clinical Runner Guide above, then configure controls and run."
                 )
 
                 task_level = gr.Dropdown(
@@ -806,14 +940,7 @@ def build_demo() -> gr.Blocks:
                     elem_classes=["guide-panel"],
                 )
 
-                gr.Markdown(
-                    "### Quick Input Guide\n"
-                    "1. Choose Task Level\n"
-                    "2. Choose Agent Mode\n"
-                    "3. If openai mode: keep gemini-openai + model id\n"
-                    "4. Optional: set a Case ID for a specific case\n"
-                    "5. Click Run Episode"
-                )
+                gr.Markdown("Guide moved to top for faster onboarding and clinical workflow context.")
 
             with gr.Column(scale=2, elem_classes=["result-panel"]):
                 result_summary = gr.HTML(

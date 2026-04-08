@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import json
 import os
 import threading
@@ -11,6 +12,94 @@ from fastapi.responses import RedirectResponse
 
 from env import ClinTrialOpenEnv
 from inference import run_episode
+
+
+UI_CSS = """
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 8px 0 12px;
+}
+
+@media (max-width: 1100px) {
+    .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.summary-card {
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #0f172a;
+}
+
+.summary-label {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+}
+
+.summary-value {
+    font-size: 20px;
+    line-height: 1.1;
+    font-weight: 700;
+    color: #e2e8f0;
+}
+
+.outcome-banner {
+    margin-top: 8px;
+    border: 1px solid #1d4ed8;
+    border-left: 4px solid #2563eb;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #0b1220;
+    color: #dbeafe;
+    font-size: 13px;
+}
+
+.violations-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.violations-table th,
+.violations-table td {
+    border: 1px solid #334155;
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.violations-table th {
+    background: #0f172a;
+    font-weight: 700;
+}
+
+.severity-chip {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.severity-critical {
+    background: #7f1d1d;
+    color: #fecaca;
+}
+
+.severity-major {
+    background: #78350f;
+    color: #fde68a;
+}
+
+.severity-minor {
+    background: #1f2937;
+    color: #cbd5e1;
+}
+"""
 
 
 class EnvRuntime:
@@ -304,6 +393,93 @@ def _build_score_breakdown(logs: List[str], total_reward: float, task_score: flo
     return "\n".join(lines)
 
 
+def _severity_class(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized == "critical":
+        return "severity-critical"
+    if normalized == "major":
+        return "severity-major"
+    return "severity-minor"
+
+
+def _build_violations_html(deviation_rows: List[List[str]]) -> str:
+    if not deviation_rows:
+        return (
+            '<div class="violations-table"><table><thead><tr>'
+            "<th>patient_id</th><th>clause_violated</th><th>severity</th><th>regulation_ref</th>"
+            "</tr></thead><tbody><tr><td colspan=\"4\">No detected violations in this run.</td></tr></tbody></table></div>"
+        )
+
+    body_rows: List[str] = []
+    for row in deviation_rows:
+        patient_id = html.escape(row[0] if len(row) > 0 else "")
+        clause_violated = html.escape(row[1] if len(row) > 1 else "")
+        severity = html.escape(row[2] if len(row) > 2 else "")
+        regulation_ref = html.escape(row[3] if len(row) > 3 else "")
+        severity_css = _severity_class(severity)
+        body_rows.append(
+            "<tr>"
+            f"<td>{patient_id}</td>"
+            f"<td>{clause_violated}</td>"
+            f"<td><span class=\"severity-chip {severity_css}\">{severity or 'minor'}</span></td>"
+            f"<td>{regulation_ref}</td>"
+            "</tr>"
+        )
+
+    return (
+        '<div class="violations-table"><table><thead><tr>'
+        "<th>patient_id</th><th>clause_violated</th><th>severity</th><th>regulation_ref</th>"
+        f"</tr></thead><tbody>{''.join(body_rows)}</tbody></table></div>"
+    )
+
+
+def _build_insight_text(deviation_rows: List[List[str]], task_score: float) -> str:
+    if not deviation_rows:
+        return "Insight: No validated protocol violations were detected in this run."
+
+    top_rows = deviation_rows[:2]
+    clause_labels = [row[1] for row in top_rows if len(row) > 1 and row[1]]
+    clause_text = ", ".join(clause_labels) if clause_labels else "protocol clauses"
+
+    if task_score >= 0.95:
+        prefix = "Insight: Agent detected expected protocol violations with high confidence"
+    elif task_score >= 0.7:
+        prefix = "Insight: Agent detected most protocol violations with partial uncertainty"
+    else:
+        prefix = "Insight: Agent detected some protocol violations and needs additional review"
+
+    return f"{prefix}. Key clauses: {clause_text}."
+
+
+def _build_result_summary_html(logs: List[str], total_reward: float, task_score: float, deviation_rows: List[List[str]]) -> str:
+    step_count = sum(1 for line in logs if line.startswith("[STEP]"))
+
+    if task_score >= 0.95 and total_reward >= 0:
+        outcome = "Successfully detected expected protocol violations with stable decision efficiency."
+    elif task_score >= 0.95:
+        outcome = "Detected expected protocol violations; efficiency penalties were applied for suboptimal actions."
+    elif task_score >= 0.7:
+        outcome = "Detected most protocol violations with partial efficiency."
+    elif task_score > 0:
+        outcome = "Partial violation detection achieved; additional review recommended."
+    else:
+        outcome = "No validated protocol violations were detected."
+
+    return (
+        '<div class="summary-grid">'
+        '<div class="summary-card"><div class="summary-label">Final Score</div>'
+        f'<div class="summary-value">{task_score:.2f}</div></div>'
+        '<div class="summary-card"><div class="summary-label">Total Reward</div>'
+        f'<div class="summary-value">{total_reward:.2f}</div></div>'
+        '<div class="summary-card"><div class="summary-label">Steps</div>'
+        f'<div class="summary-value">{step_count}</div></div>'
+        '<div class="summary-card"><div class="summary-label">Detected Violations</div>'
+        f'<div class="summary-value">{len(deviation_rows)}</div></div>'
+        "</div>"
+        f'<div class="outcome-banner">Outcome: {html.escape(outcome)}</div>'
+    )
+
+
 def evaluate(
     task_level: str,
     agent_type: str,
@@ -334,6 +510,14 @@ def evaluate(
 
     logs = result["logs"]
     detected_rows = _extract_detected_deviations(logs)
+    violations_html = _build_violations_html(detected_rows)
+    result_summary_html = _build_result_summary_html(
+        logs=logs,
+        total_reward=result["total_reward"],
+        task_score=result["task_score"],
+        deviation_rows=detected_rows,
+    )
+    insight_text = _build_insight_text(detected_rows, result["task_score"])
     score_breakdown = _build_score_breakdown(
         logs=logs,
         total_reward=result["total_reward"],
@@ -347,16 +531,17 @@ def evaluate(
         case_context["objective"],
         case_context["protocol_excerpt"],
         case_context["patient_records_json"],
-        detected_rows,
+        result_summary_html,
+        insight_text,
+        violations_html,
         score_breakdown,
         log_text,
-        result["total_reward"],
-        result["task_score"],
     )
 
 
 def build_demo() -> gr.Blocks:
     with gr.Blocks(title="ClinTrialEnv OpenEnv Runner") as demo:
+        gr.HTML(f"<style>{UI_CSS}</style>")
         gr.Markdown("# ClinTrialEnv OpenEnv Runner")
         gr.Markdown(
             "This environment simulates clinical trial auditing. The agent reads protocol and patient records, "
@@ -377,30 +562,23 @@ def build_demo() -> gr.Blocks:
                 run_btn = gr.Button("Run Episode", variant="primary")
 
             with gr.Column(scale=2):
-                with gr.Row():
-                    total_reward = gr.Number(label="Total Reward", interactive=False)
-                    final_score = gr.Number(label="Final Task Score", interactive=False)
-                    selected_case_id = gr.Textbox(label="Selected Case ID", interactive=False)
-
-                score_breakdown = gr.Markdown()
+                result_summary = gr.HTML()
+                run_insight = gr.Markdown()
+                selected_case_id = gr.Textbox(label="Selected Case ID", interactive=False)
 
                 with gr.Tabs():
-                    with gr.Tab("Detected Deviations"):
-                        detected_table = gr.Dataframe(
-                            headers=["patient_id", "clause_violated", "severity", "regulation_ref"],
-                            datatype=["str", "str", "str", "str"],
-                            column_count=(4, "fixed"),
-                            row_count=(1, "dynamic"),
-                            interactive=False,
-                        )
+                    with gr.Tab("Detected Violations"):
+                        detected_table = gr.HTML(elem_classes=["violations-table"])
+                        score_breakdown = gr.Markdown()
 
-                    with gr.Tab("Case Context"):
+                    with gr.Tab("Case Details"):
                         objective = gr.Textbox(label="Objective", lines=2, interactive=False)
                         protocol_excerpt = gr.Textbox(label="Protocol Excerpt", lines=6, interactive=False)
                         patient_records_json = gr.Textbox(label="Patient Records", lines=10, interactive=False)
 
-                    with gr.Tab("Logs"):
-                        logs = gr.Textbox(label="Logs", lines=22)
+                    with gr.Tab("Execution Trace"):
+                        with gr.Accordion("View Execution Trace", open=False):
+                            logs = gr.Textbox(label="Execution Trace", lines=22)
 
         run_btn.click(
             fn=evaluate,
@@ -410,11 +588,11 @@ def build_demo() -> gr.Blocks:
                 objective,
                 protocol_excerpt,
                 patient_records_json,
+                result_summary,
+                run_insight,
                 detected_table,
                 score_breakdown,
                 logs,
-                total_reward,
-                final_score,
             ],
         )
 

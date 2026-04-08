@@ -1,0 +1,21 @@
+[project]
+name = "clintrial-openenv"
+version = "0.1.0"
+description = "OpenEnv environment for clinical trial protocol auditing"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "Veer" }
+]
+keywords = ["openenv", "clinical-trial", "rl", "evaluation", "benchmark"]
+dependencies = [
+  "pydantic>=2.0,<3.0",
+  "openai>=1.40.0",
+  "gradio>=5.0.0",
+  "fastapi>=0.111.0",
+  "uvicorn>=0.30.0"
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"

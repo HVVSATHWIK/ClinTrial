@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 
 import gradio as gr
 from fastapi import Body, FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 
 from env import ClinTrialOpenEnv
 from inference import run_episode
@@ -102,14 +103,20 @@ runtime = EnvRuntime()
 api = FastAPI(title="ClinTrialEnv OpenEnv API", version="1.2.0")
 
 
-@api.get("/")
-def root() -> Dict[str, Any]:
+@api.get("/meta")
+def metadata() -> Dict[str, Any]:
     return {
         "name": "ClinTrialEnv",
         "status": "ok",
         "api_endpoints": ["POST /reset", "POST /step", "GET /state", "POST /state"],
-        "ui": "/ui",
+        "ui": "/",
+        "legacy_ui_path": "/ui",
     }
+
+
+@api.get("/ui", include_in_schema=False)
+def ui_redirect() -> RedirectResponse:
+    return RedirectResponse(url="/", status_code=307)
 
 
 @api.get("/health")
@@ -201,7 +208,7 @@ def build_demo() -> gr.Blocks:
 
 
 demo = build_demo()
-app = gr.mount_gradio_app(api, demo, path="/ui")
+app = gr.mount_gradio_app(api, demo, path="/")
 
 
 if __name__ == "__main__":

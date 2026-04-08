@@ -126,6 +126,17 @@ UI_CSS = """
     border-color: #b9ccda !important;
 }
 
+.gradio-container input[type="number"]::-webkit-outer-spin-button,
+.gradio-container input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.gradio-container input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
 .gradio-container select option {
     background: #ffffff !important;
     color: var(--text-main) !important;
@@ -982,11 +993,11 @@ def build_demo() -> gr.Blocks:
                     info="Keep default unless you intentionally switch models.",
                     interactive=False,
                 )
-                seed = gr.Number(
-                    value=7,
-                    precision=0,
+                seed = gr.Textbox(
+                    value="7",
                     label="Seed",
                     info="Same seed helps reproducibility.",
+                    placeholder="Enter integer seed",
                 )
                 case_id = gr.Textbox(
                     value="",
@@ -1058,6 +1069,7 @@ def build_demo() -> gr.Blocks:
             inputs=[task_level],
             outputs=[task_guide],
             queue=False,
+            show_progress="hidden",
         )
 
         show_guide_btn.click(
@@ -1065,12 +1077,14 @@ def build_demo() -> gr.Blocks:
             inputs=[task_level],
             outputs=[task_guide, show_guide_btn, hide_guide_btn],
             queue=False,
+            show_progress="hidden",
         )
 
         hide_guide_btn.click(
             fn=_hide_task_guide,
             outputs=[task_guide, show_guide_btn, hide_guide_btn],
             queue=False,
+            show_progress="hidden",
         )
 
         agent_type.change(
@@ -1078,6 +1092,7 @@ def build_demo() -> gr.Blocks:
             inputs=[agent_type],
             outputs=[llm_provider, model_name, mode_hint],
             queue=False,
+            show_progress="hidden",
         )
 
     return demo

@@ -8,6 +8,9 @@ from typing import Any, Dict, List, Optional
 from env import ClinTrialOpenEnv
 
 
+DEFAULT_GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+
 def _compact_json(payload: Dict[str, Any]) -> str:
     return json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
 
@@ -108,17 +111,41 @@ class DeterministicBaselineAgent:
         return {"action_type": "finish"}
 
 
-class OpenAIAgent:
-    def __init__(self, model_name: str, temperature: float = 0.0) -> None:
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY is not set.")
-
+class OpenAIClientAgent:
+    def __init__(
+        self,
+        model_name: str,
+        llm_provider: str,
+        temperature: float = 0.0,
+        gemini_base_url: Optional[str] = None,
+    ) -> None:
         from openai import OpenAI
 
-        self.client = OpenAI(api_key=api_key)
         self.model_name = model_name
         self.temperature = temperature
+        self.llm_provider = llm_provider
+
+        if llm_provider == "openai":
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY is not set.")
+            self.base_url = os.getenv("OPENAI_BASE_URL")
+
+        elif llm_provider == "gemini-openai":
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                raise ValueError("GEMINI_API_KEY is not set.")
+            self.base_url = gemini_base_url or os.getenv(
+                "GEMINI_OPENAI_BASE_URL", DEFAULT_GEMINI_OPENAI_BASE_URL
+            )
+
+        else:
+            raise ValueError(f"Unsupported llm_provider '{llm_provider}'.")
+
+        client_kwargs: Dict[str, Any] = {"api_key": api_key}
+        if self.base_url:
+            client_kwargs["base_url"] = self.base_url
+        self.client = OpenAI(**client_kwargs)
 
     def act(self, observation: Dict[str, Any]) -> Dict[str, Any]:
         if not observation.get("case_opened", False):
@@ -151,6 +178,8 @@ class OpenAIAgent:
         )
 
         raw_content = response.choices[0].message.content
+        if not raw_content:
+            return {"action_type": "finish"}
         try:
             payload = json.loads(raw_content)
         except json.JSONDecodeError:
@@ -160,17 +189,47 @@ class OpenAIAgent:
             return {"action_type": "finish"}
         return payload
 
+    def metadata(self) -> Dict[str, Any]:
+        payload = {
+            "llm_provider": self.llm_provider,
+            "model": self.model_name,
+        }
+        if self.base_url:
+            payload["base_url"] = self.base_url
+        return payload
 
-def _build_agent(agent_type: str, model_name: str, temperature: float):
+
+def _build_agent(
+    agent_type: str,
+    model_name: str,
+    temperature: float,
+    llm_provider: str,
+    gemini_base_url: Optional[str],
+):
     normalized = agent_type.lower().strip()
     if normalized == "baseline":
         return DeterministicBaselineAgent(), None
 
     try:
-        return OpenAIAgent(model_name=model_name, temperature=temperature), None
+        return OpenAIClientAgent(
+            model_name=model_name,
+            llm_provider=llm_provider,
+            temperature=temperature,
+            gemini_base_url=gemini_base_url,
+        ), None
     except Exception as exc:  # noqa: BLE001
-        warning = f"OpenAI agent unavailable ({exc}). Falling back to deterministic baseline."
+        warning = f"OpenAI-client agent unavailable ({exc}). Falling back to deterministic baseline."
         return DeterministicBaselineAgent(), warning
+
+
+def _resolve_model_for_provider(llm_provider: str, model_name: str) -> str:
+    normalized_provider = llm_provider.strip().lower()
+    candidate = model_name.strip()
+    if candidate:
+        return candidate
+    if normalized_provider == "gemini-openai":
+        return "gemini-2.0-flash"
+    return "gpt-4.1-mini"
 
 
 def _summarize_action(action: Dict[str, Any]) -> Dict[str, Any]:
@@ -188,6 +247,8 @@ def run_episode(
     agent_type: str,
     model_name: str,
     seed: int,
+    llm_provider: str = "gemini-openai",
+    gemini_base_url: Optional[str] = None,
     case_id: Optional[str] = None,
     temperature: float = 0.0,
     emit_stdout: bool = True,
@@ -195,7 +256,13 @@ def run_episode(
     env = ClinTrialOpenEnv(task_level=task_level)
     reset_options = {"case_id": case_id} if case_id else None
     observation, _ = env.reset(seed=seed, options=reset_options)
-    agent, warning = _build_agent(agent_type=agent_type, model_name=model_name, temperature=temperature)
+    agent, warning = _build_agent(
+        agent_type=agent_type,
+        model_name=model_name,
+        temperature=temperature,
+        llm_provider=llm_provider,
+        gemini_base_url=gemini_base_url,
+    )
 
     logs: List[str] = []
 
@@ -206,6 +273,8 @@ def run_episode(
 
     if warning:
         emit(f"[INFO] {warning}")
+    elif agent_type != "baseline" and hasattr(agent, "metadata"):
+        emit(f"[INFO] {_compact_json(agent.metadata())}")
 
     emit(
         f"[START] Episode {observation['episode_id']} | Task: {task_level} | Case: {observation.get('active_case_id')}"
@@ -218,7 +287,12 @@ def run_episode(
     while not done:
         emit(f"[STEP] {observation['current_step'] + 1}/{observation['max_steps']}")
 
-        action = agent.act(observation)
+        try:
+            action = agent.act(observation)
+        except Exception as exc:  # noqa: BLE001
+            emit(f"[INFO] {_compact_json({'agent_runtime_error': str(exc)})}")
+            action = {"action_type": "finish"}
+
         emit(f"[ACTION] {_compact_json(_summarize_action(action))}")
 
         observation, reward, done, info = env.step(action)
@@ -245,10 +319,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run baseline inference for ClinTrial OpenEnv.")
     parser.add_argument("--task", choices=["easy", "medium", "hard"], default="medium")
     parser.add_argument("--agent", choices=["baseline", "openai"], default="openai")
-    parser.add_argument("--model", default="gpt-4.1-mini")
+    parser.add_argument("--llm-provider", choices=["openai", "gemini-openai"], default="gemini-openai")
+    parser.add_argument("--model", default="")
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--case-id", default=None)
     parser.add_argument("--temperature", type=float, default=0.0)
+    parser.add_argument("--gemini-base-url", default=None)
     return parser
 
 
@@ -256,11 +332,15 @@ def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
 
+    model_name = _resolve_model_for_provider(args.llm_provider, args.model)
+
     run_episode(
         task_level=args.task,
         agent_type=args.agent,
-        model_name=args.model,
+        model_name=model_name,
         seed=args.seed,
+        llm_provider=args.llm_provider,
+        gemini_base_url=args.gemini_base_url,
         case_id=args.case_id,
         temperature=args.temperature,
         emit_stdout=True,

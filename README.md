@@ -21,7 +21,10 @@ It provides:
   - `data/medium_cases.json`
   - `data/hard_cases.json`
 - Rewrote `inference.py` to run full episodes with strict benchmark logs.
-- Added optional OpenAI-driven agent path (`--agent openai`) with deterministic fallback baseline.
+- Added an OpenAI-client LLM path (`--agent openai`) with provider selection:
+  - `--llm-provider gemini-openai` (Gemini via OpenAI-compatible endpoint)
+  - `--llm-provider openai` (native OpenAI endpoint)
+  and deterministic fallback baseline when credentials are missing.
 - Added deployment files:
   - `Dockerfile`
   - `openenv.yaml`
@@ -93,12 +96,23 @@ Run deterministic baseline:
 python inference.py --task medium --agent baseline --seed 7
 ```
 
-Run with OpenAI API:
+Run with Gemini through OpenAI client (recommended path for Gemini preference):
+
+```bash
+set GEMINI_API_KEY=your_gemini_key_here
+python inference.py --task medium --agent openai --llm-provider gemini-openai --model gemini-2.0-flash --seed 7
+```
+
+Run with OpenAI endpoint:
 
 ```bash
 set OPENAI_API_KEY=your_key_here
-python inference.py --task medium --agent openai --model gpt-4.1-mini --seed 7
+python inference.py --task medium --agent openai --llm-provider openai --model gpt-4.1-mini --seed 7
 ```
+
+Notes:
+- All LLM calls are made through the OpenAI Python client.
+- Gemini mode uses OpenAI-compatible base URL configuration (default: `https://generativelanguage.googleapis.com/v1beta/openai/`).
 
 Expected log pattern:
 
@@ -125,6 +139,12 @@ Run (Gradio app on port 7860):
 docker run -p 7860:7860 --env OPENAI_API_KEY=your_key_here clintrial-env
 ```
 
+For Gemini OpenAI-compatible mode in Docker:
+
+```bash
+docker run -p 7860:7860 --env GEMINI_API_KEY=your_gemini_key_here clintrial-env
+```
+
 Then open http://localhost:7860.
 
 ## Hugging Face Space (Beginner Steps)
@@ -138,8 +158,12 @@ Then open http://localhost:7860.
 5. Push this repository to the Space git remote.
 6. HF will auto-build from `Dockerfile`.
 7. Add secret in Space settings:
-- Key: `OPENAI_API_KEY`
-- Value: your key
+- For OpenAI endpoint:
+  - Key: `OPENAI_API_KEY`
+  - Value: your key
+- For Gemini OpenAI-compatible endpoint:
+  - Key: `GEMINI_API_KEY`
+  - Value: your Gemini key
 8. Open the Space URL and run episodes from the UI.
 
 ## Suggested Submission Files

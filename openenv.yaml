@@ -1,0 +1,52 @@
+env_name: "ClinTrialEnv"
+version: "1.1.0"
+description: "OpenEnv benchmark for protocol deviation auditing in clinical trials."
+entrypoint: "env.py:ClinTrialOpenEnv"
+python_version: "3.10+"
+
+models:
+  observation: "models.py:Observation"
+  action: "models.py:Action"
+  reward: "models.py:RewardBreakdown"
+
+tasks:
+  - id: "easy"
+    name: "structured_detection"
+    objective: "Detect obvious single-document protocol deviations."
+    max_steps: 10
+    dataset_path: "./data/easy_cases.json"
+    grader:
+      type: "precision_recall_average"
+      score_range: [0.0, 1.0]
+  - id: "medium"
+    name: "severity_classification"
+    objective: "Detect cross-document consistency and severity violations."
+    max_steps: 25
+    dataset_path: "./data/medium_cases.json"
+    grader:
+      type: "precision_recall_average"
+      score_range: [0.0, 1.0]
+  - id: "hard"
+    name: "multi_protocol_contradiction"
+    objective: "Detect temporal and multi-record contradictions."
+    max_steps: 50
+    dataset_path: "./data/hard_cases.json"
+    grader:
+      type: "precision_recall_average"
+      score_range: [0.0, 1.0]
+
+inference:
+  script: "inference.py"
+  required_logs:
+    - "[START]"
+    - "[STEP]"
+    - "[END]"
+
+deployment:
+  dockerfile: "./Dockerfile"
+  huggingface_space: true
+
+compute_requirements:
+  vcpu: 2
+  ram_gb: 8
+  max_runtime_mins: 20

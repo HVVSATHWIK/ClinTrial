@@ -1,0 +1,81 @@
+{
+  "description": "Medium task: detect dosage and classification mismatches across protocol and patient records.",
+  "task_level": "medium",
+  "cases": [
+    {
+      "case_id": "MED-001",
+      "objective": "Detect overdose relative to protocol-defined limit.",
+      "protocol_excerpt": "Section 3.2: Investigational product dose must not exceed 120 mg/day.",
+      "patient_records": [
+        {
+          "patient_id": "P042",
+          "dose_log": [
+            {
+              "date": "2026-03-02",
+              "dose_mg": 100
+            },
+            {
+              "date": "2026-03-03",
+              "dose_mg": 140
+            }
+          ],
+          "site_comment": "Dose escalation entered by mistake and corrected next day."
+        }
+      ],
+      "expected_deviations": [
+        {
+          "patient_id": "P042",
+          "clause_violated": "Section 3.2",
+          "severity": "critical",
+          "regulation_ref": "ICH E6(R2) 4.5.2"
+        }
+      ]
+    },
+    {
+      "case_id": "MED-002",
+      "objective": "Detect unreported serious adverse event timeline mismatch.",
+      "protocol_excerpt": "Section 9.1: Serious adverse events must be reported within 24 hours of site awareness.",
+      "patient_records": [
+        {
+          "patient_id": "P055",
+          "sae_event_date": "2026-03-11T10:00:00Z",
+          "site_awareness_date": "2026-03-11T13:30:00Z",
+          "sae_report_submitted": "2026-03-13T18:00:00Z",
+          "event_summary": "Hospitalization for severe rash."
+        }
+      ],
+      "expected_deviations": [
+        {
+          "patient_id": "P055",
+          "clause_violated": "Section 9.1",
+          "severity": "critical",
+          "regulation_ref": "ICH E2A 1.5"
+        }
+      ]
+    },
+    {
+      "case_id": "MED-003",
+      "objective": "Detect laboratory threshold breach without dose hold.",
+      "protocol_excerpt": "Section 4.3: ALT greater than 3 times upper limit of normal requires immediate dose interruption.",
+      "patient_records": [
+        {
+          "patient_id": "P060",
+          "lab_results": {
+            "alt_uln": 40,
+            "alt_value": 165
+          },
+          "dose_status_after_lab": "continued",
+          "notes": "No interruption documented."
+        }
+      ],
+      "expected_deviations": [
+        {
+          "patient_id": "P060",
+          "clause_violated": "Section 4.3",
+          "severity": "major",
+          "regulation_ref": "ICH E6(R2) 4.5.2"
+        }
+      ]
+    }
+  ]
+}

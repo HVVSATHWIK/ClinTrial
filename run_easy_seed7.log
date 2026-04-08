@@ -1,0 +1,14 @@
+[START] Episode EP_6076D5A7 | Task: easy | Case: EASY-002
+[STEP] 1/10
+[ACTION] {"action_type":"read_case","case_id":"EASY-002"}
+[REWARD] 0.0500
+[TASK_SCORE] 0.0000
+[STEP] 2/10
+[ACTION] {"action_type":"submit_reports","reports":1}
+[REWARD] 0.6500
+[TASK_SCORE] 1.0000
+[STEP] 3/10
+[ACTION] {"action_type":"finish"}
+[REWARD] 0.1000
+[TASK_SCORE] 1.0000
+[END] Episode finished. Total Reward: 0.8000 | Final Task Score: 1.0000

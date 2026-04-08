@@ -1,0 +1,71 @@
+{
+  "description": "Easy task: detect obvious single-document protocol deviations.",
+  "task_level": "easy",
+  "cases": [
+    {
+      "case_id": "EASY-001",
+      "objective": "Flag missing informed consent before screening.",
+      "protocol_excerpt": "Section 2.1: Written informed consent must be signed before any trial-specific screening procedure.",
+      "patient_records": [
+        {
+          "patient_id": "P001",
+          "screening_date": "2026-02-03",
+          "consent_signed_date": "2026-02-05",
+          "notes": "CBC and ECG completed at screening visit."
+        }
+      ],
+      "expected_deviations": [
+        {
+          "patient_id": "P001",
+          "clause_violated": "Section 2.1",
+          "severity": "critical",
+          "regulation_ref": "ICH E6(R2) 4.8.10"
+        }
+      ]
+    },
+    {
+      "case_id": "EASY-002",
+      "objective": "Flag visit window violation for Week 4 safety review.",
+      "protocol_excerpt": "Section 5.4: Week 4 follow-up visit must occur within plus or minus 3 days from Day 28.",
+      "patient_records": [
+        {
+          "patient_id": "P014",
+          "day_1": "2026-01-10",
+          "week_4_visit": "2026-02-18",
+          "notes": "Visit completed on Day 39 due to site staffing issue."
+        }
+      ],
+      "expected_deviations": [
+        {
+          "patient_id": "P014",
+          "clause_violated": "Section 5.4",
+          "severity": "major",
+          "regulation_ref": "ICH E6(R2) 4.5.2"
+        }
+      ]
+    },
+    {
+      "case_id": "EASY-003",
+      "objective": "Flag prohibited concomitant medication.",
+      "protocol_excerpt": "Section 7.2: Systemic corticosteroids are prohibited during the treatment period unless approved as emergency rescue.",
+      "patient_records": [
+        {
+          "patient_id": "P031",
+          "concomitant_meds": [
+            "Ibuprofen 200 mg",
+            "Prednisone 20 mg daily"
+          ],
+          "notes": "No emergency rescue approval documented."
+        }
+      ],
+      "expected_deviations": [
+        {
+          "patient_id": "P031",
+          "clause_violated": "Section 7.2",
+          "severity": "major",
+          "regulation_ref": "ICH E6(R2) 4.5.2"
+        }
+      ]
+    }
+  ]
+}

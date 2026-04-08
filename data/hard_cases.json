@@ -1,0 +1,95 @@
+{
+  "description": "Hard task: detect temporal and multi-patient contradictions requiring multi-step reasoning.",
+  "task_level": "hard",
+  "cases": [
+    {
+      "case_id": "HARD-001",
+      "objective": "Detect treatment sequence violation after withdrawal criteria are met.",
+      "protocol_excerpt": "Section 6.5: If neutrophil count drops below 1.0 x10^9/L, dosing must stop until recovery above 1.5 x10^9/L.",
+      "patient_records": [
+        {
+          "patient_id": "P077",
+          "timeline": [
+            {
+              "date": "2026-01-12",
+              "neutrophils": 1.8,
+              "dose_given": true
+            },
+            {
+              "date": "2026-01-19",
+              "neutrophils": 0.9,
+              "dose_given": true
+            },
+            {
+              "date": "2026-01-26",
+              "neutrophils": 1.2,
+              "dose_given": true
+            }
+          ],
+          "notes": "No interruption order in chart."
+        }
+      ],
+      "expected_deviations": [
+        {
+          "patient_id": "P077",
+          "clause_violated": "Section 6.5",
+          "severity": "critical",
+          "regulation_ref": "ICH E6(R2) 4.3.1"
+        }
+      ]
+    },
+    {
+      "case_id": "HARD-002",
+      "objective": "Detect randomization and treatment allocation contradiction.",
+      "protocol_excerpt": "Section 2.4: Cohort B participants must receive blinded placebo during Cycle 1.",
+      "patient_records": [
+        {
+          "patient_id": "P083",
+          "randomization": "Cohort B",
+          "pharmacy_dispense": [
+            {
+              "cycle": 1,
+              "medication": "Investigational Active 50 mg"
+            }
+          ],
+          "ecrf_entry": "Placebo assigned"
+        }
+      ],
+      "expected_deviations": [
+        {
+          "patient_id": "P083",
+          "clause_violated": "Section 2.4",
+          "severity": "major",
+          "regulation_ref": "ICH E6(R2) 5.5.3"
+        }
+      ]
+    },
+    {
+      "case_id": "HARD-003",
+      "objective": "Detect eligibility breach from cumulative history and baseline labs.",
+      "protocol_excerpt": "Section 1.8: Patients with prior biologic exposure in the last 12 months or baseline QTc over 470 ms are ineligible.",
+      "patient_records": [
+        {
+          "patient_id": "P099",
+          "prior_therapies": [
+            {
+              "therapy": "Biologic X",
+              "last_dose_date": "2025-09-10"
+            }
+          ],
+          "screening_date": "2026-05-01",
+          "baseline_qtc_ms": 482,
+          "enrollment_status": "enrolled"
+        }
+      ],
+      "expected_deviations": [
+        {
+          "patient_id": "P099",
+          "clause_violated": "Section 1.8",
+          "severity": "critical",
+          "regulation_ref": "ICH E6(R2) 3.1.2"
+        }
+      ]
+    }
+  ]
+}

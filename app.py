@@ -18,30 +18,63 @@ UI_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600&display=swap');
 
 :root {
-    --bg-page: #f3f8f8;
+    --bg-page: #eef4f7;
     --panel-bg: #ffffff;
-    --panel-muted: #f8fbfc;
-    --border: #d7e4ea;
+    --panel-muted: #f5f9fb;
+    --border: #cddae3;
     --text-main: #0f172a;
-    --text-muted: #475569;
-    --accent: #0f766e;
-    --accent-soft: #ccfbf1;
+    --text-muted: #334155;
+    --accent: #0e7490;
+    --accent-strong: #0b5f78;
 }
 
-.gradio-container {
+.gradio-container,
+.dark .gradio-container {
+    --body-background-fill: var(--bg-page);
+    --body-text-color: var(--text-main);
+    --block-background-fill: var(--panel-bg);
+    --input-background-fill: #ffffff;
+    --input-border-color: #c0d2df;
+    --button-primary-background-fill: var(--accent);
+    --button-primary-background-fill-hover: var(--accent-strong);
+    --button-primary-text-color: #ffffff;
+    --button-secondary-background-fill: #ffffff;
+    --button-secondary-border-color: #b8cedd;
+    --button-secondary-text-color: #1e293b;
     background:
-        radial-gradient(circle at 0% 0%, #d8f3ea 0%, rgba(216, 243, 234, 0) 40%),
-        radial-gradient(circle at 100% 0%, #dbeafe 0%, rgba(219, 234, 254, 0) 46%),
+        radial-gradient(circle at 0% 0%, #d4f0ef 0%, rgba(212, 240, 239, 0) 38%),
+        radial-gradient(circle at 100% 0%, #e2ecfb 0%, rgba(226, 236, 251, 0) 44%),
         var(--bg-page);
-    color: var(--text-main);
+    color: var(--text-main) !important;
     font-family: "IBM Plex Sans", sans-serif;
 }
 
-h1,
-h2,
-h3 {
+.gradio-container .prose,
+.gradio-container .prose p,
+.gradio-container .prose li,
+.gradio-container .prose strong,
+.gradio-container .prose h1,
+.gradio-container .prose h2,
+.gradio-container .prose h3,
+.gradio-container .label-wrap label,
+.gradio-container .label-wrap span,
+.gradio-container label,
+.gradio-container legend {
+    color: var(--text-main) !important;
+    opacity: 1 !important;
+}
+
+.gradio-container .prose p,
+.gradio-container .prose li,
+.gradio-container .block-info {
+    color: var(--text-muted) !important;
+}
+
+.gradio-container h1,
+.gradio-container h2,
+.gradio-container h3 {
     font-family: "IBM Plex Serif", serif;
-    color: #0b1324;
+    color: #0b1324 !important;
     letter-spacing: 0.2px;
 }
 
@@ -55,21 +88,53 @@ h3 {
 }
 
 .clinical-note {
-    border: 1px solid #a7f3d0;
-    background: #ecfdf5;
+    border: 1px solid #bae6fd;
+    background: #eff9ff;
     border-radius: 10px;
     padding: 10px 12px;
-    color: #065f46;
+    color: #0b4f63;
     font-size: 13px;
     margin-bottom: 10px;
 }
 
 .guide-panel {
-    border: 1px solid #bae6fd;
-    background: #f0f9ff;
+    border: 1px solid #a7d8ef;
+    background: #f4fbff;
     border-radius: 10px;
     padding: 10px 12px;
     margin-top: 8px;
+    color: var(--text-main) !important;
+}
+
+.gradio-container input,
+.gradio-container textarea,
+.gradio-container select {
+    background: #ffffff !important;
+    color: var(--text-main) !important;
+    border-color: #b9ccda !important;
+}
+
+.gradio-container input::placeholder,
+.gradio-container textarea::placeholder {
+    color: #64748b !important;
+}
+
+.gradio-container [role="tab"] {
+    color: #475569 !important;
+    font-weight: 600;
+}
+
+.gradio-container [role="tab"][aria-selected="true"] {
+    color: var(--accent) !important;
+    border-bottom-color: var(--accent) !important;
+}
+
+.gradio-container button {
+    font-weight: 600 !important;
+}
+
+.gradio-container button:hover {
+    filter: saturate(1.05);
 }
 
 .summary-grid {
@@ -107,12 +172,12 @@ h3 {
 
 .outcome-banner {
     margin-top: 8px;
-    border: 1px solid #99f6e4;
+    border: 1px solid #7dd3fc;
     border-left: 4px solid var(--accent);
     border-radius: 8px;
     padding: 10px 12px;
-    background: #f0fdfa;
-    color: #134e4a;
+    background: #f0f9ff;
+    color: #0f3f5a;
     font-size: 13px;
 }
 

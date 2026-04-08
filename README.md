@@ -54,6 +54,19 @@ Core action types:
 - `submit_reports`
 - `finish`
 
+### Runtime HTTP Endpoints (Validator-facing)
+
+The deployed app exposes OpenEnv-compatible API endpoints:
+
+- `POST /reset`
+- `POST /step`
+- `GET /state`
+- `POST /state`
+
+The interactive Gradio demo is still available at:
+
+- `/ui`
+
 ## Task Design
 
 Three explicit benchmark levels are defined:

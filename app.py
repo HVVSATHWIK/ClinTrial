@@ -285,14 +285,38 @@ UI_CSS = """
     line-height: 1.45;
 }
 
-.guide-actions {
+.top-guide-row {
+    margin: 6px 0 16px;
+    align-items: stretch !important;
+}
+
+.top-guide-panel {
+    height: 100%;
+    border: 1px solid #b8d5e5;
+    border-radius: 16px;
+    padding: 14px;
+    background: linear-gradient(180deg, #ffffff 0%, #f7fcff 100%);
+}
+
+.top-guide-panel .prose {
+    color: #35556d !important;
+}
+
+.top-guide-dropdown {
+    width: 100%;
     margin-top: 6px;
 }
 
-.guide-inline-note {
-    margin-top: 6px;
-    color: #36556d !important;
-    font-size: 12px;
+.top-guide-dropdown .label-wrap {
+    background: #edf8ff;
+    border: 1px solid #b7d8ea;
+    border-radius: 10px;
+    padding: 6px 10px;
+}
+
+.top-guide-dropdown .label-wrap span {
+    color: #0f3f5a !important;
+    font-weight: 700;
 }
 
 @media (max-width: 980px) {
@@ -809,22 +833,6 @@ def _task_guide_text(task_level: str) -> str:
     )
 
 
-def _show_task_guide(task_level: str):
-    return (
-        gr.update(value=_task_guide_text(task_level), visible=True),
-        gr.update(visible=False),
-        gr.update(visible=True),
-    )
-
-
-def _hide_task_guide():
-    return (
-        gr.update(visible=False),
-        gr.update(visible=True),
-        gr.update(visible=False),
-    )
-
-
 def _agent_mode_ui(agent_type: str):
     normalized = agent_type.lower().strip()
     if normalized == "openai":
@@ -959,7 +967,17 @@ def build_demo() -> gr.Blocks:
             "This environment simulates clinical trial auditing. The agent reads protocol and patient records, "
             "submits protocol deviations, and is evaluated on both correctness and decision efficiency."
         )
-        gr.HTML(_usage_hero_html())
+
+        with gr.Row(equal_height=True, elem_classes=["top-guide-row"]):
+            with gr.Column(scale=3):
+                gr.HTML(_usage_hero_html())
+
+            with gr.Column(scale=2):
+                with gr.Group(elem_classes=["top-guide-panel"]):
+                    gr.Markdown("### Task Guide")
+                    gr.Markdown("Open the dropdown for task-level clinical guidance.")
+                    with gr.Accordion("Task Guide Dropdown", open=False, elem_classes=["top-guide-dropdown"]):
+                        task_guide_dropdown = gr.Markdown(value=_task_guide_text("medium"))
 
         with gr.Row(equal_height=False):
             with gr.Column(scale=1, elem_classes=["control-panel"]):
@@ -1011,21 +1029,7 @@ def build_demo() -> gr.Blocks:
                 )
 
                 run_btn = gr.Button("Run Episode", variant="primary", size="lg")
-
-                with gr.Row(elem_classes=["guide-actions"]):
-                    show_guide_btn = gr.Button("Open Task Guide")
-                    hide_guide_btn = gr.Button("Close Task Guide", visible=False)
-
-                task_guide = gr.Markdown(
-                    value=_task_guide_text("medium"),
-                    visible=False,
-                    elem_classes=["guide-panel"],
-                )
-
-                gr.Markdown(
-                    "Guide buttons only show or hide instructions. They do not run an episode.",
-                    elem_classes=["guide-inline-note"],
-                )
+                gr.Markdown("Task Guide is available in the top dropdown beside Clinical Runner Guide.")
 
             with gr.Column(scale=2, elem_classes=["result-panel"]):
                 result_summary = gr.HTML(
@@ -1067,22 +1071,7 @@ def build_demo() -> gr.Blocks:
         task_level.change(
             fn=_task_guide_text,
             inputs=[task_level],
-            outputs=[task_guide],
-            queue=False,
-            show_progress="hidden",
-        )
-
-        show_guide_btn.click(
-            fn=_show_task_guide,
-            inputs=[task_level],
-            outputs=[task_guide, show_guide_btn, hide_guide_btn],
-            queue=False,
-            show_progress="hidden",
-        )
-
-        hide_guide_btn.click(
-            fn=_hide_task_guide,
-            outputs=[task_guide, show_guide_btn, hide_guide_btn],
+            outputs=[task_guide_dropdown],
             queue=False,
             show_progress="hidden",
         )

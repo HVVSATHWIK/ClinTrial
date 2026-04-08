@@ -99,6 +99,10 @@ UI_CSS = """
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
+.result-panel {
+    min-height: 640px;
+}
+
 .clinical-note {
     border: 1px solid #bae6fd;
     background: #eff9ff;
@@ -292,8 +296,6 @@ UI_CSS = """
 
 .top-guide-panel {
     height: auto;
-    max-height: 560px;
-    overflow-y: auto;
     border: 1px solid #b8d5e5;
     border-radius: 16px;
     padding: 14px;
@@ -323,8 +325,22 @@ UI_CSS = """
 
 .top-guide-dropdown .accordion-content,
 .top-guide-dropdown .gradio-accordion-content {
-    max-height: 430px;
-    overflow-y: auto;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+}
+
+.main-run-row {
+    align-items: stretch !important;
+}
+
+.empty-state {
+    border: 1px dashed #b7cfde;
+    border-radius: 10px;
+    padding: 14px;
+    background: #f5fbff;
+    color: #36556d;
+    font-size: 13px;
 }
 
 @media (max-width: 980px) {
@@ -814,30 +830,20 @@ def _task_guide_text(task_level: str) -> str:
         examples = "Examples: delayed SAE report plus missing follow-up compliance evidence."
 
     return (
-        "### Clinical Task Guide\n"
+        "### Clinical Task Snapshot\n"
         f"- **Current Level:** {normalized.title()}\n"
         f"- **Audit Focus:** {task_focus}\n"
-        f"- **Case Pattern Examples:** {examples}\n"
+        f"- **Typical Pattern:** {examples}\n"
         "\n"
-        "### Run Checklist\n"
-        "1. Set **Task Level** for audit complexity.\n"
-        "2. Choose **Agent Mode** (baseline or openai).\n"
-        "3. If openai mode is selected, confirm **Provider** and **Model ID**.\n"
-        "4. Keep or change **Seed** for reproducibility.\n"
-        "5. Optional: provide **Case ID** (for example, EASY-001).\n"
+        "### What To Configure\n"
+        "1. **Task Level** for audit complexity.\n"
+        "2. **Agent Mode** (baseline or openai).\n"
+        "3. In openai mode only: **Provider** and **Model ID**.\n"
+        "4. **Seed** and optional **Case ID**.\n"
         "\n"
-        "### Inputs You Provide\n"
-        "- Task level, mode, optional model settings, seed, and optional case id.\n"
-        "\n"
-        "### Inputs You Do Not Provide\n"
-        "- Protocol text and patient records are loaded automatically from benchmark datasets.\n"
-        "\n"
-        "### Scoring Behavior\n"
-        "- Correct and complete deviation detection improves score.\n"
-        "- Unnecessary repeated actions reduce decision-efficiency reward.\n"
-        "\n"
-        "### Platform Stability\n"
-        "- UI controls do **not** modify validator endpoints, environment rules, or reward logic."
+        "### Important\n"
+        "- Protocol and patient records are loaded automatically from benchmark datasets.\n"
+        "- Only **Run Episode** executes the environment."
     )
 
 
@@ -845,15 +851,15 @@ def _agent_mode_ui(agent_type: str):
     normalized = agent_type.lower().strip()
     if normalized == "openai":
         return (
-            gr.update(interactive=True),
-            gr.update(interactive=True),
-            "LLM mode is active. Provider and Model ID are used for this run.",
+            gr.update(visible=True, interactive=True),
+            gr.update(visible=True, interactive=True),
+            "LLM mode is active. Provider and Model ID are visible and used for this run.",
         )
 
     return (
-        gr.update(interactive=False),
-        gr.update(interactive=False),
-        "Baseline mode is active. Provider and Model ID are locked and ignored.",
+        gr.update(visible=False, interactive=False),
+        gr.update(visible=False, interactive=False),
+        "Baseline mode is active. Provider and Model ID are hidden because they are ignored.",
     )
 
 
@@ -987,7 +993,7 @@ def build_demo() -> gr.Blocks:
                     with gr.Accordion("Task Guide Dropdown", open=False, elem_classes=["top-guide-dropdown"]):
                         task_guide_dropdown = gr.Markdown(value=_task_guide_text("medium"))
 
-        with gr.Row(equal_height=False):
+        with gr.Row(equal_height=True, elem_classes=["main-run-row"]):
             with gr.Column(scale=1, elem_classes=["control-panel"]):
                 gr.Markdown("### Run Setup")
                 gr.Markdown(
@@ -1011,12 +1017,14 @@ def build_demo() -> gr.Blocks:
                     value="gemini-openai",
                     label="LLM Provider",
                     info="Used only when Agent Mode is openai.",
+                    visible=False,
                     interactive=False,
                 )
                 model_name = gr.Textbox(
                     value="gemini-2.5-flash-lite",
                     label="Model ID",
                     info="Keep default unless you intentionally switch models.",
+                    visible=False,
                     interactive=False,
                 )
                 seed = gr.Textbox(
@@ -1032,7 +1040,7 @@ def build_demo() -> gr.Blocks:
                 )
 
                 mode_hint = gr.Markdown(
-                    "Baseline mode is active. Provider and Model ID are locked and ignored.",
+                    "Baseline mode is active. Provider and Model ID are hidden because they are ignored.",
                     elem_classes=["clinical-note"],
                 )
 
@@ -1048,8 +1056,11 @@ def build_demo() -> gr.Blocks:
 
                 with gr.Tabs():
                     with gr.Tab("Detected Deviations"):
-                        detected_table = gr.HTML(elem_classes=["violations-table"])
-                        score_breakdown = gr.Markdown()
+                        detected_table = gr.HTML(
+                            value='<div class="empty-state">Run an episode to populate detected deviations and scoring details.</div>',
+                            elem_classes=["violations-table"],
+                        )
+                        score_breakdown = gr.Markdown("No run executed yet.")
 
                     with gr.Tab("Case Context"):
                         objective = gr.Textbox(label="Objective", lines=2, interactive=False)

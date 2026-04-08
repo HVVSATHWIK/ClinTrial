@@ -841,7 +841,7 @@ def _task_guide_text(task_level: str) -> str:
         "### Configure\n"
         "- **Task Level** and **Agent Mode**.\n"
         "- **Seed** and optional **Case ID**.\n"
-        "- In openai mode only: **Provider** and **Model ID**.\n"
+        "- **Provider** and **Model ID** are always visible for judge transparency; they are used only in openai mode.\n"
         "\n"
         "### Important\n"
         "- Protocol and patient records are loaded automatically from benchmark datasets.\n"
@@ -859,9 +859,9 @@ def _agent_mode_ui(agent_type: str):
         )
 
     return (
-        gr.update(visible=False, interactive=False),
-        gr.update(visible=False, interactive=False),
-        "Baseline mode is active. Provider and Model ID are hidden because they are ignored.",
+        gr.update(visible=True, interactive=False),
+        gr.update(visible=True, interactive=False),
+        "Baseline mode is active. Provider and Model ID are shown for judges, read-only, and ignored for scoring.",
     )
 
 
@@ -1019,14 +1019,14 @@ def build_demo() -> gr.Blocks:
                     value="gemini-openai",
                     label="LLM Provider",
                     info="Used only when Agent Mode is openai.",
-                    visible=False,
+                    visible=True,
                     interactive=False,
                 )
                 model_name = gr.Textbox(
                     value="gemini-2.5-flash-lite",
                     label="Model ID",
                     info="Keep default unless you intentionally switch models.",
-                    visible=False,
+                    visible=True,
                     interactive=False,
                 )
                 seed = gr.Textbox(
@@ -1042,7 +1042,7 @@ def build_demo() -> gr.Blocks:
                 )
 
                 mode_hint = gr.Markdown(
-                    "Baseline mode is active. Provider and Model ID are hidden because they are ignored.",
+                    "Baseline mode is active. Provider and Model ID are shown for judges, read-only, and ignored for scoring.",
                     elem_classes=["clinical-note"],
                 )
 

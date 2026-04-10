@@ -127,7 +127,17 @@ class OpenAIClientAgent:
         self.llm_provider = llm_provider
         self.has_submitted_reports = False
 
-        if llm_provider == "openai":
+        self.auth_mode = "provider"
+        injected_api_key = os.getenv("API_KEY")
+        injected_base_url = os.getenv("API_BASE_URL")
+
+        # Competition validator mode: always route through injected LiteLLM proxy credentials.
+        if injected_api_key and injected_base_url:
+            api_key = injected_api_key
+            self.base_url = injected_base_url
+            self.auth_mode = "validator_proxy"
+
+        elif llm_provider == "openai":
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise ValueError("OPENAI_API_KEY is not set.")
@@ -350,6 +360,7 @@ class OpenAIClientAgent:
         payload = {
             "llm_provider": self.llm_provider,
             "model": self.model_name,
+            "auth_mode": self.auth_mode,
         }
         if self.base_url:
             payload["base_url"] = self.base_url
@@ -384,6 +395,16 @@ def _resolve_model_for_provider(llm_provider: str, model_name: str) -> str:
     candidate = model_name.strip()
     if candidate:
         return candidate
+
+    # Prefer a proxy-injected model hint when available.
+    proxy_model = (os.getenv("MODEL") or os.getenv("LITELLM_MODEL") or "").strip()
+    if proxy_model:
+        return proxy_model
+
+    # For validator-proxy execution, default to a common OpenAI-family model identifier.
+    if os.getenv("API_BASE_URL"):
+        return "gpt-4.1-mini"
+
     if normalized_provider == "gemini-openai":
         return "gemini-2.5-flash-lite"
     return "gpt-4.1-mini"
@@ -527,7 +548,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run baseline inference for ClinTrial OpenEnv.")
     parser.add_argument("--task", choices=["easy", "medium", "hard"], default="medium")
     parser.add_argument("--agent", choices=["baseline", "openai"], default="openai")
-    parser.add_argument("--llm-provider", choices=["openai", "gemini-openai"], default="gemini-openai")
+    parser.add_argument("--llm-provider", choices=["openai", "gemini-openai"], default="openai")
     parser.add_argument("--model", default="")
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--case-id", default=None)

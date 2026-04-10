@@ -139,7 +139,7 @@ Run deterministic baseline:
 python inference.py --task medium --agent baseline --seed 7
 ```
 
-Run with Gemini through OpenAI client (recommended path for Gemini preference):
+Run with Gemini through OpenAI client (local/dev mode):
 
 ```bash
 set GEMINI_API_KEY=your_gemini_key_here
@@ -152,6 +152,22 @@ Run with OpenAI endpoint:
 set OPENAI_API_KEY=your_key_here
 python inference.py --task medium --agent openai --llm-provider openai --model gpt-4.1-mini --seed 7
 ```
+
+### Phase 2 Validator Mode (Required)
+
+When running in competition validation, do not use provider-specific keys.
+Use the injected proxy credentials exactly:
+
+```bash
+set API_BASE_URL=https://your-proxy-base-url
+set API_KEY=your-proxy-api-key
+python inference.py --task medium --agent openai --llm-provider openai --seed 7
+```
+
+Implementation note:
+- `inference.py` now prioritizes `API_BASE_URL` + `API_KEY` automatically when both are present.
+- This ensures LLM calls are routed through the provided LiteLLM proxy.
+- Provider-specific env vars (`GEMINI_API_KEY`, `OPENAI_API_KEY`) are only used for local/dev runs when proxy vars are absent.
 
 Notes:
 - All LLM calls are made through the OpenAI Python client.

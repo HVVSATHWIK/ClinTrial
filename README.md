@@ -140,19 +140,20 @@ python inference.py --agent baseline --seed 7
 ```
 
 This default run evaluates all three tasks (`easy`, `medium`, `hard`) in sequence.
+For submission safety, `inference.py` always evaluates all three tasks even if `--task` is provided.
 
 Run with Gemini through OpenAI client (local/dev mode):
 
 ```bash
 set GEMINI_API_KEY=your_gemini_key_here
-python inference.py --task medium --agent openai --llm-provider gemini-openai --model gemini-2.5-flash-lite --seed 7
+python inference.py --agent openai --llm-provider gemini-openai --model gemini-2.5-flash-lite --seed 7
 ```
 
 Run with OpenAI endpoint:
 
 ```bash
 set OPENAI_API_KEY=your_key_here
-python inference.py --task medium --agent openai --llm-provider openai --model gpt-4.1-mini --seed 7
+python inference.py --agent openai --llm-provider openai --model gpt-4.1-mini --seed 7
 ```
 
 ### Phase 2 Validator Mode (Required)
@@ -176,6 +177,26 @@ Notes:
 - All LLM calls are made through the OpenAI Python client.
 - Gemini mode uses OpenAI-compatible base URL configuration (default: `https://generativelanguage.googleapis.com/v1beta/openai/`).
 - Inference includes anti-loop controls: identical repeated report submissions are auto-terminated, and near-perfect task score can auto-trigger `finish` to avoid reward collapse from spam actions.
+
+### Local Pre-Submit Smoke Check
+
+Use this PowerShell check before submitting. It verifies exactly 3 `[END]` lines and ensures all task scores are strictly within `(0, 1)`.
+
+```powershell
+$py='c:/Users/Veerendranath/OneDrive/Documents/Hackathons/OpenEnv/.venv/Scripts/python.exe'
+$out = & $py inference.py --agent baseline --seed 7
+$end = $out | Where-Object { $_ -match '^\[END\]' }
+$scores = @()
+foreach($line in $end){ if($line -match 'score=([0-9]*\.?[0-9]+)'){ $scores += [double]$Matches[1] } }
+$invalid = $scores | Where-Object { $_ -le 0 -or $_ -ge 1 }
+"end_lines=$($end.Count)"
+"scores=$($scores -join ',')"
+"invalid_count=$($invalid.Count)"
+```
+
+Expected result:
+- `end_lines=3`
+- `invalid_count=0`
 
 Expected log pattern:
 

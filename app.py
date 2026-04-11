@@ -546,10 +546,54 @@ api = FastAPI(title="ClinTrialEnv OpenEnv API", version="1.2.0")
 
 @api.get("/meta")
 def metadata() -> Dict[str, Any]:
+    tasks = [
+        {
+            "id": "easy",
+            "name": "structured_detection",
+            "dataset_path": "./data/easy_cases.json",
+            "grader": {
+                "type": "precision_recall_average",
+                "score_range": [0.001, 0.999],
+            },
+            "grader_type": "precision_recall_average",
+            "grader_score_range": [0.001, 0.999],
+        },
+        {
+            "id": "medium",
+            "name": "severity_classification",
+            "dataset_path": "./data/medium_cases.json",
+            "grader": {
+                "type": "precision_recall_average",
+                "score_range": [0.001, 0.999],
+            },
+            "grader_type": "precision_recall_average",
+            "grader_score_range": [0.001, 0.999],
+        },
+        {
+            "id": "hard",
+            "name": "multi_protocol_contradiction",
+            "dataset_path": "./data/hard_cases.json",
+            "grader": {
+                "type": "precision_recall_average",
+                "score_range": [0.001, 0.999],
+            },
+            "grader_type": "precision_recall_average",
+            "grader_score_range": [0.001, 0.999],
+        },
+    ]
+
     return {
         "name": "ClinTrialEnv",
         "status": "ok",
         "api_endpoints": ["POST /reset", "POST /step", "GET /state", "POST /state"],
+        "tasks": tasks,
+        "task_count": len(tasks),
+        "grader_summary": {
+            "required_task_count": 3,
+            "tasks_with_graders": len(tasks),
+            "scoring_contract": "strictly_between_0_and_1",
+            "score_range": [0.001, 0.999],
+        },
         "ui": "/",
         "legacy_ui_path": "/ui",
     }

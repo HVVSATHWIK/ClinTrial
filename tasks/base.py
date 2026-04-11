@@ -119,7 +119,7 @@ class BaseTask:
         score = (0.45 * precision) + (0.55 * recall)
 
         # Validator requires task scores to be strictly within (0, 1), not endpoints.
-        epsilon = 1e-4
+        epsilon = 1e-3
         score = max(epsilon, min(1.0 - epsilon, score))
         return float(f"{score:.4f}")
 

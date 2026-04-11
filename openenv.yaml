@@ -17,7 +17,7 @@ tasks:
     dataset_path: "./data/easy_cases.json"
     grader:
       type: "precision_recall_average"
-      score_range: [0.0, 1.0]
+      score_range: [0.001, 0.999]
   - id: "medium"
     name: "severity_classification"
     objective: "Detect cross-document consistency and severity violations."
@@ -25,7 +25,7 @@ tasks:
     dataset_path: "./data/medium_cases.json"
     grader:
       type: "precision_recall_average"
-      score_range: [0.0, 1.0]
+      score_range: [0.001, 0.999]
   - id: "hard"
     name: "multi_protocol_contradiction"
     objective: "Detect temporal and multi-record contradictions."
@@ -33,7 +33,7 @@ tasks:
     dataset_path: "./data/hard_cases.json"
     grader:
       type: "precision_recall_average"
-      score_range: [0.0, 1.0]
+      score_range: [0.001, 0.999]
 
 inference:
   script: "inference.py"

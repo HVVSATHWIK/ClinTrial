@@ -71,6 +71,14 @@ class ClinTrialOpenEnv:
             reward_breakdown.invalid_action_penalty = -0.3
             errors.append("schema_validation_failed")
             errors.append(str(exc))
+
+            # Keep task_score consistent with grader contract even on invalid actions.
+            self.task_score = self.task.grade_episode(
+                expected=self.active_case.expected_deviations,
+                seen_submissions=self.seen_submissions,
+                claimed_ground_truth=self.claimed_ground_truth,
+            )
+
             reward = self._finalize_step_reward(reward_breakdown)
             if self.current_step >= self.max_steps:
                 self.done = True

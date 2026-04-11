@@ -123,7 +123,7 @@ Penalties:
 
 Each step reward is clamped to `[-1.0, 1.0]`.
 
-Task grading (`0.0` to `1.0`) is precision-recall based and reported in `info.task_score`.
+Task grading is precision-recall based and reported in `info.task_score`, clamped to remain strictly within `(0, 1)`.
 
 ## Run Inference Locally
 
@@ -136,8 +136,10 @@ pip install -r requirements.txt
 Run deterministic baseline:
 
 ```bash
-python inference.py --task medium --agent baseline --seed 7
+python inference.py --agent baseline --seed 7
 ```
+
+This default run evaluates all three tasks (`easy`, `medium`, `hard`) in sequence.
 
 Run with Gemini through OpenAI client (local/dev mode):
 
@@ -160,12 +162,13 @@ Use the injected proxy credentials exactly:
 
 ```bash
 set API_BASE_URL=https://your-proxy-base-url
-set API_KEY=your-proxy-api-key
-python inference.py --task medium --agent openai --llm-provider openai --seed 7
+set MODEL_NAME=your-model-id
+set HF_TOKEN=your-proxy-api-key
+python inference.py --agent openai --llm-provider openai --seed 7
 ```
 
 Implementation note:
-- `inference.py` now prioritizes `API_BASE_URL` + `API_KEY` automatically when both are present.
+- `inference.py` now prioritizes `API_BASE_URL` + `HF_TOKEN` automatically when present.
 - This ensures LLM calls are routed through the provided LiteLLM proxy.
 - Provider-specific env vars (`GEMINI_API_KEY`, `OPENAI_API_KEY`) are only used for local/dev runs when proxy vars are absent.
 
@@ -177,12 +180,11 @@ Notes:
 Expected log pattern:
 
 ```text
-[START] Episode EP_XXXXXXX | Task: medium | Case: MED-001
-[STEP] 1/25
-[ACTION] {"action_type":"read_case","case_id":"MED-001"}
-[REWARD] 0.0500
-...
-[END] Episode finished. Total Reward: 0.7500 | Final Task Score: 1.0000
+[START] task=easy env=clintrial model=deterministic-baseline
+[STEP] step=1 action={"action_type":"read_case","case_id":"EASY-002"} reward=0.05 done=false error=null
+[STEP] step=2 action={"action_type":"submit_reports","reports":[...]} reward=0.65 done=false error=null
+[STEP] step=3 action={"action_type":"finish"} reward=0.10 done=true error=null
+[END] success=true steps=3 score=0.999 rewards=0.05,0.65,0.10
 ```
 
 ## Run With Docker

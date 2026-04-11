@@ -10,10 +10,20 @@ from env import ClinTrialOpenEnv
 
 
 DEFAULT_GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+DEFAULT_API_BASE_URL = "https://router.huggingface.co/v1"
+DEFAULT_BENCHMARK_NAME = "clintrial"
 
 
 def _compact_json(payload: Dict[str, Any]) -> str:
     return json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
+
+
+def _strict_score(value: float, epsilon: float = 1e-3) -> float:
+    return max(epsilon, min(1.0 - epsilon, float(value)))
+
+
+def _bool_str(value: bool) -> str:
+    return "true" if value else "false"
 
 
 class DeterministicBaselineAgent:
@@ -128,8 +138,8 @@ class OpenAIClientAgent:
         self.has_submitted_reports = False
 
         self.auth_mode = "provider"
-        injected_api_key = os.getenv("API_KEY")
-        injected_base_url = os.getenv("API_BASE_URL")
+        injected_api_key = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+        injected_base_url = os.getenv("API_BASE_URL") or DEFAULT_API_BASE_URL
 
         # Competition validator mode: always route through injected LiteLLM proxy credentials.
         if injected_api_key and injected_base_url:
@@ -396,6 +406,10 @@ def _resolve_model_for_provider(llm_provider: str, model_name: str) -> str:
     if candidate:
         return candidate
 
+    env_model = (os.getenv("MODEL_NAME") or "").strip()
+    if env_model:
+        return env_model
+
     # Prefer a proxy-injected model hint when available.
     proxy_model = (os.getenv("MODEL") or os.getenv("LITELLM_MODEL") or "").strip()
     if proxy_model:
@@ -466,40 +480,43 @@ def run_episode(
     )
 
     logs: List[str] = []
+    benchmark_name = (os.getenv("OPENENV_BENCHMARK") or DEFAULT_BENCHMARK_NAME).strip() or DEFAULT_BENCHMARK_NAME
+    baseline_mode = agent_type.lower().strip() == "baseline" or warning is not None
+    model_label = "deterministic-baseline" if baseline_mode else (model_name.strip() or "unknown-model")
 
-    def emit(line: str) -> None:
+    def emit(line: str, *, to_stdout: bool = True) -> None:
         logs.append(line)
-        if emit_stdout:
+        if emit_stdout and to_stdout:
             print(line)
 
     if warning:
-        emit(f"[INFO] {warning}")
+        emit(f"[INFO] {warning}", to_stdout=False)
     elif agent_type != "baseline" and hasattr(agent, "metadata"):
-        emit(f"[INFO] {_compact_json(agent.metadata())}")
+        emit(f"[INFO] {_compact_json(agent.metadata())}", to_stdout=False)
 
-    emit(
-        f"[START] Episode {observation['episode_id']} | Task: {task_level} | Case: {observation.get('active_case_id')}"
-    )
+    emit(f"[START] task={task_level} env={benchmark_name} model={model_label}")
 
     total_reward = 0.0
     done = False
-    final_task_score = 0.0
+    final_task_score = _strict_score(0.001)
+    rewards_by_step: List[float] = []
     force_finish_next_step = False
     last_submission_signature = ""
     identical_submission_count = 0
+    steps_executed = 0
 
     while not done:
-        emit(f"[STEP] {observation['current_step'] + 1}/{observation['max_steps']}")
+        step_index = int(observation.get("current_step", 0)) + 1
 
         if force_finish_next_step:
             action = {"action_type": "finish"}
             force_finish_next_step = False
-            emit("[INFO] {\"auto_finish\":\"score_threshold_reached\"}")
+            emit("[INFO] {\"auto_finish\":\"score_threshold_reached\"}", to_stdout=False)
         else:
             try:
                 action = agent.act(observation)
             except Exception as exc:  # noqa: BLE001
-                emit(f"[INFO] {_compact_json({'agent_runtime_error': str(exc)})}")
+                emit(f"[INFO] {_compact_json({'agent_runtime_error': str(exc)})}", to_stdout=False)
                 if hasattr(agent, "fallback_action"):
                     action = agent.fallback_action(observation)
                 else:
@@ -514,42 +531,57 @@ def run_episode(
                 last_submission_signature = current_signature
 
             if identical_submission_count >= max_identical_submissions:
-                emit("[INFO] {\"auto_finish\":\"identical_submission_loop_detected\"}")
+                emit("[INFO] {\"auto_finish\":\"identical_submission_loop_detected\"}", to_stdout=False)
                 action = {"action_type": "finish"}
 
-        emit(f"[ACTION] {_compact_json(_summarize_action(action))}")
+        emit(f"[ACTION] {_compact_json(_summarize_action(action))}", to_stdout=False)
         if debug_actions:
-            emit(f"[ACTION_RAW] {_compact_json(action)}")
+            emit(f"[ACTION_RAW] {_compact_json(action)}", to_stdout=False)
 
         observation, reward, done, info = env.step(action)
         total_reward += reward
-        final_task_score = float(info.get("task_score", 0.0))
+        rewards_by_step.append(reward)
+        steps_executed += 1
+        final_task_score = _strict_score(float(info.get("task_score", final_task_score)))
 
-        emit(f"[REWARD] {reward:.4f}")
-        emit(f"[TASK_SCORE] {final_task_score:.4f}")
+        errors = info.get("errors") or []
+        error_value = str(errors[-1]) if errors else "null"
+        done_str = _bool_str(bool(done))
+
+        emit(f"[REWARD] {reward:.4f}", to_stdout=False)
+        emit(f"[TASK_SCORE] {final_task_score:.4f}", to_stdout=False)
+        emit(
+            f"[STEP] step={step_index} action={_compact_json(action)} reward={reward:.2f} done={done_str} error={error_value}"
+        )
 
         if not done and final_task_score >= auto_finish_score:
             force_finish_next_step = True
 
-        errors = info.get("errors") or []
         if errors:
-            emit(f"[INFO] {_compact_json({'errors': errors})}")
+            emit(f"[INFO] {_compact_json({'errors': errors})}", to_stdout=False)
 
-    emit(f"[END] Episode finished. Total Reward: {total_reward:.4f} | Final Task Score: {final_task_score:.4f}")
+    success = final_task_score >= 0.6
+    rewards_csv = ",".join(f"{value:.2f}" for value in rewards_by_step)
+    emit(
+        f"[END] success={_bool_str(success)} steps={steps_executed} score={final_task_score:.3f} rewards={rewards_csv}"
+    )
 
     return {
         "total_reward": round(total_reward, 4),
         "task_score": round(final_task_score, 4),
+        "success": bool(success),
+        "steps": steps_executed,
+        "task": task_level,
         "logs": logs,
     }
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run baseline inference for ClinTrial OpenEnv.")
-    parser.add_argument("--task", choices=["easy", "medium", "hard"], default="medium")
+    parser.add_argument("--task", choices=["easy", "medium", "hard", "all"], default="all")
     parser.add_argument("--agent", choices=["baseline", "openai"], default="openai")
     parser.add_argument("--llm-provider", choices=["openai", "gemini-openai"], default="openai")
-    parser.add_argument("--model", default="")
+    parser.add_argument("--model", default=os.getenv("MODEL_NAME", ""))
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--case-id", default=None)
     parser.add_argument("--temperature", type=float, default=0.0)
@@ -566,20 +598,23 @@ def main() -> None:
 
     model_name = _resolve_model_for_provider(args.llm_provider, args.model)
 
-    run_episode(
-        task_level=args.task,
-        agent_type=args.agent,
-        model_name=model_name,
-        seed=args.seed,
-        llm_provider=args.llm_provider,
-        gemini_base_url=args.gemini_base_url,
-        case_id=args.case_id,
-        temperature=args.temperature,
-        debug_actions=args.debug_actions,
-        auto_finish_score=args.auto_finish_score,
-        max_identical_submissions=args.max_identical_submissions,
-        emit_stdout=True,
-    )
+    task_order = ["easy", "medium", "hard"] if args.task == "all" else [args.task]
+
+    for task_level in task_order:
+        run_episode(
+            task_level=task_level,
+            agent_type=args.agent,
+            model_name=model_name,
+            seed=args.seed,
+            llm_provider=args.llm_provider,
+            gemini_base_url=args.gemini_base_url,
+            case_id=args.case_id,
+            temperature=args.temperature,
+            debug_actions=args.debug_actions,
+            auto_finish_score=args.auto_finish_score,
+            max_identical_submissions=args.max_identical_submissions,
+            emit_stdout=True,
+        )
 
 
 if __name__ == "__main__":

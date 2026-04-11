@@ -117,7 +117,11 @@ class BaseTask:
 
         # Favor recall slightly so near-correct reports still produce a useful task score.
         score = (0.45 * precision) + (0.55 * recall)
-        return max(0.0, min(1.0, round(score, 4)))
+
+        # Validator requires task scores to be strictly within (0, 1), not endpoints.
+        epsilon = 1e-4
+        score = max(epsilon, min(1.0 - epsilon, score))
+        return float(f"{score:.4f}")
 
     def _find_best_expected(
         self,
